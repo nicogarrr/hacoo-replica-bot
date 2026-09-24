@@ -167,6 +167,12 @@ def search(db, query: str, limit: int = 5) -> dict:
     for k in range(len(tokens), floor - 1, -1):
         sub = " ".join(tokens[:k])
         rows = db.search_fts(sub, limit) or db.search_like(sub, limit)
+        if category:
+            # titulos de la misma categoria (zapatillas) antes que morralla
+            # sin tipo ("Polo Ralph Lauren 👶👶"); bm25 manda dentro del grupo
+            rows = sorted(
+                rows,
+                key=lambda r: 0 if categorize(r["title"] or "") == category else 1)
         if _add(rows, results, seen, counted_rows, limit, category):
             break
     if len(results) < limit and len(tokens) > 1:
