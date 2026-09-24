@@ -33,6 +33,13 @@ class Config:
         self.resolve_rate_per_min = _int("RESOLVE_RATE_PER_MIN", 60)
         self.db_path = os.environ.get("DB_PATH", "data/replicas.db")
         self.owner_id = 8258546109
+        self.opencode_go_api_key = os.environ.get("OPENCODE_GO_API_KEY", "").strip()
+        self.opencode_go_base_url = os.environ.get(
+            "OPENCODE_GO_BASE_URL", "https://opencode.ai/zen/go/v1")
+        self.vision_model = os.environ.get(
+            "VISION_MODEL", "deepseek-v4-flash-vision-exp")
+        self.opencode_go_session = os.environ.get(
+            "OPENCODE_GO_SESSION", "hacoo-replica-bot")
 
     def validate(self) -> None:
         if not self.telegram_bot_token:
