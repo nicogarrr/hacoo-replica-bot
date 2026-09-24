@@ -122,7 +122,8 @@ def _split_query(tokens: list) -> tuple:
     return brand, model
 
 
-def _add(rows, results, seen, counted_rows, limit, category, lvl):
+def _add(rows, results, seen, counted_rows, limit, category, lvl,
+         typed_ids=frozenset()):
     for r in rows:
         if r["id"] in counted_rows:
             continue
@@ -152,6 +153,7 @@ def _add(rows, results, seen, counted_rows, limit, category, lvl):
             "posted_at": posted,
             "sources": 1,
             "lvl": lvl,
+            "typed": r["id"] in typed_ids,
         }
         seen[key] = entry
         results.append(entry)
@@ -183,14 +185,23 @@ def search(db, query: str, limit: int = 5) -> dict:
     counted_rows = set()
     floor = MIN_TOKENS if len(tokens) >= MIN_TOKENS else len(tokens)
     for k in range(len(tokens), floor - 1, -1):
-        sub = " ".join(tokens[:k])
-        rows = db.search_fts(sub, limit) or db.search_like(sub, limit)
-        if category:
-            # consulta tipada: marca + lexico de la categoria, para sacar
-            # "Zapatillas RL Heritage" aunque el top bm25 sea morralla
-            # generica de la marca ("Polo Ralph Lauren 👶👶"). Con marcas
-            # de 3+ palabras se prueba tambien sin la primera: los canales
-            # escriben "Ralph Lauren", no "Polo Ralph Lauren".
+        # los canales abrevian la marca ("Ralph Lauren", no "Polo Ralph
+        # Lauren"): si la marca tiene 3+ palabras, se prueba tambien sin
+        # la primera para no tirar el modelo a la basura con ella
+        subs = [" ".join(tokens[:k])]
+        if brand and len(brand) >= 3 and k > 2:
+            subs.append(" ".join(tokens[1:k]))
+        rows = []
+        for sub in subs:
+            seen_sub = {r["id"] for r in rows}
+            chunk = db.search_fts(sub, limit) or db.search_like(sub, limit)
+            rows += [r for r in chunk if r["id"] not in seen_sub]
+        if category and k <= max(len(brand), MIN_TOKENS):
+            # consulta tipada SOLO en niveles marca-only: marca + lexico de
+            # la categoria, para sacar "Zapatillas RL Heritage" aunque el
+            # top bm25 sea morralla generica de la marca. En niveles
+            # estrictos el AND manda y la tipada no entra (si no, una
+            # busqueda de Heritage sacaria sandalias).
             base = brand if brand else tokens[:k]
             typed = db.search_fts_with_any(
                 base, sorted(_LEXICON[category]), limit)
@@ -198,14 +209,12 @@ def search(db, query: str, limit: int = 5) -> dict:
                 typed = db.search_fts_with_any(
                     base[1:], sorted(_LEXICON[category]), limit)
             tids = {t["id"] for t in typed}
-            if k <= max(len(brand), MIN_TOKENS):
-                # nivel marca-only: las tipadas mandan sobre la morralla
-                rows = list(typed) + [r for r in rows if r["id"] not in tids]
-            else:
-                # nivel estricto: el AND exacto manda; tipadas solo suman
-                gids = {r["id"] for r in rows}
-                rows = list(rows) + [t for t in typed if t["id"] not in gids]
-        if _add(rows, results, seen, counted_rows, limit, category, k):
+            rows = list(typed) + [r for r in rows if r["id"] not in tids]
+        else:
+            typed = []
+            tids = set()
+        if _add(rows, results, seen, counted_rows, limit, category, k,
+                typed_ids=tids):
             break
     if len(results) < limit and len(tokens) > 1:
         rows = db.search_fts(" ".join(tokens), limit, mode="or") \
@@ -219,7 +228,9 @@ def search(db, query: str, limit: int = 5) -> dict:
     ordered = []
     for lvl in dict.fromkeys(e["lvl"] for e in by_lvl):
         group = [e for e in by_lvl if e["lvl"] == lvl]
+        # tipadas (misma categoria) primero y, dentro, las mas nuevas
         group.sort(key=lambda e: e["posted_at"], reverse=True)
+        group.sort(key=lambda e: not e.get("typed"))
         ordered.extend(group)
     cutoff_drop = _days_ago(45)
     fresh = [e for e in ordered if e["posted_at"] >= cutoff_drop]
