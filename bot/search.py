@@ -40,6 +40,8 @@ ACCESSORY = {
     "ring", "tote", "handbag", "crossbody", "clutch",
 }
 
+_LEXICON = {"footwear": FOOTWEAR, "apparel": APPAREL, "accessory": ACCESSORY}
+
 BRANDS = [
     "polo ralph lauren", "ralph lauren", "the north face", "north face",
     "stone island", "cp company", "chrome hearts", "new balance",
@@ -168,11 +170,25 @@ def search(db, query: str, limit: int = 5) -> dict:
         sub = " ".join(tokens[:k])
         rows = db.search_fts(sub, limit) or db.search_like(sub, limit)
         if category:
-            # titulos de la misma categoria (zapatillas) antes que morralla
-            # sin tipo ("Polo Ralph Lauren 👶👶"); bm25 manda dentro del grupo
-            rows = sorted(
-                rows,
-                key=lambda r: 0 if categorize(r["title"] or "") == category else 1)
+            # consulta tipada: marca + lexico de la categoria, para sacar
+            # "Zapatillas RL Heritage" aunque el top bm25 sea morralla
+            # generica de la marca ("Polo Ralph Lauren 👶👶"). Con marcas
+            # de 3+ palabras se prueba tambien sin la primera: los canales
+            # escriben "Ralph Lauren", no "Polo Ralph Lauren".
+            base = brand if brand else tokens[:k]
+            typed = db.search_fts_with_any(
+                base, sorted(_LEXICON[category]), limit)
+            if not typed and len(base) >= 3:
+                typed = db.search_fts_with_any(
+                    base[1:], sorted(_LEXICON[category]), limit)
+            tids = {t["id"] for t in typed}
+            if k <= max(len(brand), MIN_TOKENS):
+                # nivel marca-only: las tipadas mandan sobre la morralla
+                rows = list(typed) + [r for r in rows if r["id"] not in tids]
+            else:
+                # nivel estricto: el AND exacto manda; tipadas solo suman
+                gids = {r["id"] for r in rows}
+                rows = list(rows) + [t for t in typed if t["id"] not in gids]
         if _add(rows, results, seen, counted_rows, limit, category):
             break
     if len(results) < limit and len(tokens) > 1:

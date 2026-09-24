@@ -110,6 +110,34 @@ class DB:
             (match, limit * 3),
         ).fetchall()
 
+    def search_fts_with_any(self, tokens_and: list, any_terms: list,
+                            limit: int = 8) -> list:
+        """AND de tokens de marca/modelo + (OR de lexico de categoria).
+
+        Garantiza que los titulos con tipo de producto ("Zapatillas RL
+        Heritage") aparezcan aunque el top bm25 este lleno de titulos
+        genericos de la marca.
+        """
+        ands = " AND ".join(f'"{t}"*' for t in tokens_and if len(t) >= 2)
+        anys = " OR ".join(f'"{t}"*' for t in any_terms)
+        if not ands or not anys:
+            return []
+        match = f"({ands}) AND ({anys})"
+        return self.conn.execute(
+            """
+            SELECT l.id, m.title, m.posted_at, l.channel, l.message_id,
+                   COALESCE(l.resolved_url, l.url) AS link, l.product_id,
+                   bm25(links_fts) AS score
+            FROM links_fts f
+            JOIN links l ON l.id = f.rowid
+            JOIN messages m ON m.channel = l.channel AND m.message_id = l.message_id
+            WHERE links_fts MATCH ?
+            ORDER BY score, m.message_id DESC
+            LIMIT ?
+            """,
+            (match, limit * 3),
+        ).fetchall()
+
     def search_like(self, query: str, limit: int = 8, mode: str = "and") -> list:
         terms = [t for t in query.split() if len(t) >= 2]
         if not terms:
