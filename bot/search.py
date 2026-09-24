@@ -122,7 +122,7 @@ def _split_query(tokens: list) -> tuple:
     return brand, model
 
 
-def _add(rows, results, seen, counted_rows, limit, category):
+def _add(rows, results, seen, counted_rows, limit, category, lvl):
     for r in rows:
         if r["id"] in counted_rows:
             continue
@@ -132,21 +132,37 @@ def _add(rows, results, seen, counted_rows, limit, category):
             if rcat and rcat != category:
                 continue  # guarda de categoria: calzado nunca trae ropa
         key = r["product_id"] or r["link"]
+        posted = (r["posted_at"] or "")[:10]
         if key in seen:
             seen[key]["sources"] += 1
+            # el enlace mas reciente del mismo producto es el que vale:
+            # los enlaces de Hacoo mueren en ~1 mes
+            if posted > seen[key]["posted_at"]:
+                seen[key].update({
+                    "id": r["id"], "link": r["link"],
+                    "orig_url": r["orig_url"], "posted_at": posted,
+                })
             continue
         entry = {
+            "id": r["id"],
             "title": clean_title(r["title"]),
             "link": r["link"],
+            "orig_url": r["orig_url"],
             "channel": r["channel"],
-            "posted_at": (r["posted_at"] or "")[:10],
+            "posted_at": posted,
             "sources": 1,
+            "lvl": lvl,
         }
         seen[key] = entry
         results.append(entry)
         if len(results) >= limit:
             return True
     return False
+
+
+def _days_ago(n: int) -> str:
+    import time as _t
+    return _t.strftime("%Y-%m-%d", _t.gmtime(_t.time() - n * 86400))
 
 
 def search(db, query: str, limit: int = 5) -> dict:
@@ -189,14 +205,29 @@ def search(db, query: str, limit: int = 5) -> dict:
                 # nivel estricto: el AND exacto manda; tipadas solo suman
                 gids = {r["id"] for r in rows}
                 rows = list(rows) + [t for t in typed if t["id"] not in gids]
-        if _add(rows, results, seen, counted_rows, limit, category):
+        if _add(rows, results, seen, counted_rows, limit, category, k):
             break
     if len(results) < limit and len(tokens) > 1:
         rows = db.search_fts(" ".join(tokens), limit, mode="or") \
             or db.search_like(" ".join(tokens), limit, mode="or")
         # titulos con tipo de producto claro primero: menos morralla
         rows = sorted(rows, key=lambda r: 0 if categorize(r["title"] or "") else 1)
-        _add(rows, results, seen, counted_rows, limit, category)
+        _add(rows, results, seen, counted_rows, limit, category, 1)
+    # frescura: dentro de cada nivel, los enlaces mas nuevos primero;
+    # y se ocultan los de >45 dias salvo que no quede nada mas
+    by_lvl = sorted(results, key=lambda e: -e["lvl"])
+    ordered = []
+    for lvl in dict.fromkeys(e["lvl"] for e in by_lvl):
+        group = [e for e in by_lvl if e["lvl"] == lvl]
+        group.sort(key=lambda e: e["posted_at"], reverse=True)
+        ordered.extend(group)
+    cutoff_drop = _days_ago(45)
+    fresh = [e for e in ordered if e["posted_at"] >= cutoff_drop]
+    results = fresh if fresh else ordered
+    cutoff_stale = _days_ago(25)
+    for e in results:
+        e["stale"] = e["posted_at"] < cutoff_stale
+
     exact = True
     if model_terms:
         ml = [m.lower() for m in model_terms]
