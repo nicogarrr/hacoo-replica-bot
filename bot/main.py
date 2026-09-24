@@ -25,8 +25,11 @@ async def indexer_loop(cfg: Config, db: DB) -> None:
         total = 0
         for channel in cfg.channels:
             try:
-                total += crawl_channel(
-                    session, channel, db, max_pages=cfg.max_pages_per_run)
+                # en hilo: crawl_channel es sincrono y si no congela el
+                # event loop (bot sordo durante todo el rastreo)
+                total += await asyncio.to_thread(
+                    crawl_channel, session, channel, db,
+                    cfg.max_pages_per_run)
             except Exception:
                 log.exception("rastreo de %s fallo", channel)
         log.info("rastreo: %s enlaces nuevos", total)
@@ -77,7 +80,9 @@ async def main() -> None:
     try:
         await app.initialize()
         await app.start()
-        await app.updater.start_polling(drop_pending_updates=True)
+        await app.updater.start_polling(drop_pending_updates=False)
+        # False: mensajes mandados durante un reinicio se responden
+        # al volver, no se tiran
         log.info("bot en marcha")
         while True:
             await asyncio.sleep(3600)
