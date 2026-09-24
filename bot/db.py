@@ -38,8 +38,11 @@ END;
 class DB:
     def __init__(self, path: str) -> None:
         self.path = path
-        self.conn = sqlite3.connect(path, check_same_thread=False)
+        self.conn = sqlite3.connect(path, timeout=30, check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
+        # WAL + busy_timeout: bot (resolver/crawler) y backfill conviven
+        self.conn.execute("PRAGMA journal_mode=WAL")
+        self.conn.execute("PRAGMA busy_timeout=30000")
         self.conn.executescript(SCHEMA)
         self.conn.commit()
 
