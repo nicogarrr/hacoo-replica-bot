@@ -30,7 +30,7 @@ class Config:
         self.index_interval_min = _int("INDEX_INTERVAL_MIN", 60)
         self.max_pages_per_run = _int("MAX_PAGES_PER_RUN", 40)
         self.resolve_links = os.environ.get("RESOLVE_LINKS", "1") == "1"
-        self.resolve_rate_per_min = _int("RESOLVE_RATE_PER_MIN", 60)
+        self.resolve_rate_per_min = _int("RESOLVE_RATE_PER_MIN", 30)
         self.db_path = os.environ.get("DB_PATH", "data/replicas.db")
         self.owner_id = 8258546109
         self.opencode_go_api_key = os.environ.get("OPENCODE_GO_API_KEY", "").strip()
