@@ -43,6 +43,12 @@ class DB:
         self.conn.executescript(SCHEMA)
         self.conn.commit()
 
+    def min_message_id(self, channel: str) -> int:
+        row = self.conn.execute(
+            "SELECT MIN(message_id) AS m FROM messages WHERE channel = ?", (channel,)
+        ).fetchone()
+        return row["m"] or 0
+
     def max_message_id(self, channel: str) -> int:
         row = self.conn.execute(
             "SELECT MAX(message_id) AS m FROM messages WHERE channel = ?", (channel,)
