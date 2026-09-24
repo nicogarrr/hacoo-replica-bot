@@ -9,6 +9,8 @@ services:
     restart: unless-stopped
     init: true
     env_file: .env
+    environment:
+      PYTHONUNBUFFERED: "1"
     volumes:
       - ./data:/app/bot/data
     deploy:
