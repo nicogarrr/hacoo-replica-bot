@@ -9,7 +9,9 @@ from config import Config
 from db import DB
 from handlers import make_handlers
 from resolver import resolve_pending
+from liveness import check_pending
 
+logging.getLogger("httpx").setLevel(logging.WARNING)  # no filtrar token en URLs
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
@@ -37,6 +39,13 @@ async def indexer_loop(cfg: Config, db: DB) -> None:
                     cfg.resolve_rate_per_min, budget_s)
                 if done:
                     log.info("resolver: %s enlaces procesados", done)
+                # liveness con presupuesto propio: ~300/ciclo, no atraganta
+                checked, dead = await asyncio.to_thread(
+                    check_pending, session, db,
+                    cfg.resolve_rate_per_min, 600)
+                if checked:
+                    log.info("liveness: %s chequeados, %s muertos",
+                             checked, dead)
             except Exception:
                 log.exception("resolver fallo")
         await asyncio.sleep(cfg.index_interval_min * 60)
