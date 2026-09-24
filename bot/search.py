@@ -217,6 +217,9 @@ def search(db, query: str, limit: int = 5) -> dict:
                     if t["id"] not in tids0]
             tids = {t["id"] for t in typed}
             rows = list(typed) + [r for r in rows if r["id"] not in tids]
+            # en niveles marca-only manda la frescura, no bm25: asi las
+            # zapatillas de hace 12 dias entran aunque bm25 las entierre
+            rows.sort(key=lambda r: (r["posted_at"] or ""), reverse=True)
         else:
             typed = []
             tids = set()
