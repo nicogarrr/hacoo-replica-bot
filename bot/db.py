@@ -82,12 +82,15 @@ class DB:
         self.conn.commit()
 
     def links_to_check(self, limit: int) -> list:
-        """Enlaces para chequeo de vida: nunca chequeados primero."""
+        """Chequeo de vida: sin chequear primero, y de esos los de posts
+        mas antiguos (los enlaces de Hacoo mueren en ~1 mes)."""
         return self.conn.execute(
             """
-            SELECT id, url FROM links
-            WHERE dead_at IS NULL
-            ORDER BY checked_at IS NOT NULL, checked_at
+            SELECT l.id, l.url FROM links l
+            JOIN messages m ON m.channel = l.channel
+                           AND m.message_id = l.message_id
+            WHERE l.dead_at IS NULL
+            ORDER BY l.checked_at IS NOT NULL, m.message_id
             LIMIT ?
             """,
             (limit,),
@@ -129,8 +132,8 @@ class DB:
         return self.conn.execute(
             """
             SELECT l.id, m.title, m.posted_at, l.channel, l.message_id,
-                   COALESCE(l.resolved_url, l.url) AS link, l.product_id,
-                   bm25(links_fts) AS score
+                   COALESCE(l.resolved_url, l.url) AS link, l.url AS orig_url,
+                   l.product_id, bm25(links_fts) AS score
             FROM links_fts f
             JOIN links l ON l.id = f.rowid
             JOIN messages m ON m.channel = l.channel AND m.message_id = l.message_id
@@ -157,8 +160,8 @@ class DB:
         return self.conn.execute(
             """
             SELECT l.id, m.title, m.posted_at, l.channel, l.message_id,
-                   COALESCE(l.resolved_url, l.url) AS link, l.product_id,
-                   bm25(links_fts) AS score
+                   COALESCE(l.resolved_url, l.url) AS link, l.url AS orig_url,
+                   l.product_id, bm25(links_fts) AS score
             FROM links_fts f
             JOIN links l ON l.id = f.rowid
             JOIN messages m ON m.channel = l.channel AND m.message_id = l.message_id
@@ -179,7 +182,8 @@ class DB:
         return self.conn.execute(
             f"""
             SELECT l.id, m.title, m.posted_at, l.channel, l.message_id,
-                   COALESCE(l.resolved_url, l.url) AS link, l.product_id, 0.0 AS score
+                   COALESCE(l.resolved_url, l.url) AS link, l.url AS orig_url,
+                   l.product_id, 0.0 AS score
             FROM links l
             JOIN messages m ON m.channel = l.channel AND m.message_id = l.message_id
             WHERE {where} AND l.dead_at IS NULL

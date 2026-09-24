@@ -40,3 +40,13 @@ def check_pending(session, db, rate_per_min: int = 30,
             if max_seconds and time.time() - started > max_seconds:
                 return done, dead
     return done, dead
+
+
+def check_one(session, url: str) -> bool:
+    """Chequeo puntual (busqueda en vivo): True si el enlace esta muerto."""
+    try:
+        r = session.get(url, allow_redirects=False, timeout=10, stream=True)
+        r.close()
+        return r.status_code in DEAD_CODES
+    except Exception:
+        return False

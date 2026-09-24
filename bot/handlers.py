@@ -7,6 +7,17 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from search import search
+from liveness import check_one
+from channels import make_session
+
+_live_session = None
+
+
+def _get_session():
+    global _live_session
+    if _live_session is None:
+        _live_session = make_session()
+    return _live_session
 from vision import identify_from_photo
 
 log = logging.getLogger(__name__)
@@ -95,11 +106,30 @@ def make_handlers(cfg, db):
                 "Lo mas parecido:\n"]
         else:
             lines = [f"Resultados para <b>{html.escape(query)}</b>:\n"]
+        # chequeo en vivo de enlaces viejos (>25 dias): el shortlink 404
+        # = muerto, se marca y se oculta antes de ensenarlo
+        alive = []
+        for r in results:
+            if r.get("stale"):
+                dead = await asyncio.to_thread(
+                    check_one, _get_session(), r["orig_url"])
+                db.mark_checked(r["id"], dead)
+                if dead:
+                    continue
+            alive.append(r)
+        results = alive
+        if not results:
+            await update.message.reply_text(
+                "Lo que tenia para eso son enlaces viejos y ya estan "
+                "muertos (los de Hacoo duran ~1 mes). Cuando un canal "
+                "publique uno nuevo saldra aqui.")
+            return
         for i, r in enumerate(results, 1):
             extra = f" (+{r['sources']-1} fuentes)" if r["sources"] > 1 else ""
             date = f" · {r['posted_at']}" if r["posted_at"] else ""
+            warn = " ⚠️ viejo" if r.get("stale") else ""
             lines.append(
-                f"{i}. {html.escape(r['title'])}{extra}{date}\n"
+                f"{i}. {html.escape(r['title'])}{extra}{date}{warn}\n"
                 f"<a href=\"{html.escape(r['link'])}\">Abrir en Hacoo</a>")
         lines.append("\nLa talla se elige dentro de Hacoo al comprar.")
         await update.message.reply_text(
