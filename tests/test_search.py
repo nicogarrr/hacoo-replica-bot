@@ -40,3 +40,24 @@ def test_search_accents_and_case(tmp_path):
 def test_search_too_short(tmp_path):
     db = make_db(tmp_path)
     assert search(db, "a") == []
+
+
+def test_progressive_relaxation(tmp_path):
+    db = DB(str(tmp_path / "r.db"))
+    db.insert_message("c", 1, "2026-09-24", "Ralph Lauren", "")
+    db.insert_link("c", 1, "https://x.sh/rl")
+    db.commit()
+    # frase larga tipo vision: marca+modelo+colorway; debe caer a "ralph lauren"
+    res = search(db, "Polo Ralph Lauren Court sneaker white black gum")
+    assert res and "Ralph Lauren" in res[0]["title"]
+
+
+def test_exact_ranks_before_relaxed(tmp_path):
+    db = DB(str(tmp_path / "e.db"))
+    db.insert_message("c", 1, "2026-09-24", "Jordan 4 Military Black", "")
+    db.insert_link("c", 1, "https://x.sh/a")
+    db.insert_message("c", 2, "2026-09-23", "Jordan 4", "")
+    db.insert_link("c", 2, "https://x.sh/b")
+    db.commit()
+    res = search(db, "Jordan 4 Military Black")
+    assert res[0]["title"] == "Jordan 4 Military Black"

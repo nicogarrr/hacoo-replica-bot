@@ -83,11 +83,12 @@ class DB:
             "UPDATE links SET resolved_at = ? WHERE id = ?", (time.time(), link_id)
         )
 
-    def search_fts(self, query: str, limit: int = 8) -> list:
+    def search_fts(self, query: str, limit: int = 8, mode: str = "and") -> list:
         terms = [t for t in query.split() if len(t) >= 2]
         if not terms:
             return []
-        match = " AND ".join(f'"{t}"*' for t in terms)
+        joiner = " OR " if mode == "or" else " AND "
+        match = joiner.join(f'"{t}"*' for t in terms)
         return self.conn.execute(
             """
             SELECT l.id, m.title, m.posted_at, l.channel, l.message_id,
@@ -103,11 +104,12 @@ class DB:
             (match, limit * 3),
         ).fetchall()
 
-    def search_like(self, query: str, limit: int = 8) -> list:
+    def search_like(self, query: str, limit: int = 8, mode: str = "and") -> list:
         terms = [t for t in query.split() if len(t) >= 2]
         if not terms:
             return []
-        where = " AND ".join("LOWER(m.title) LIKE ?" for _ in terms)
+        where = " OR ".join("LOWER(m.title) LIKE ?" for _ in terms) if mode == "or" \
+            else " AND ".join("LOWER(m.title) LIKE ?" for _ in terms)
         params = [f"%{t.lower()}%" for t in terms]
         return self.conn.execute(
             f"""
