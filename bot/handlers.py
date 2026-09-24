@@ -1,0 +1,116 @@
+"""Handlers de Telegram. Interfaz en espanol."""
+import html
+import logging
+
+from telegram import Update
+from telegram.ext import ContextTypes
+
+from search import search
+
+log = logging.getLogger(__name__)
+
+HELP = (
+    "Busco replicas en Hacoo usando lo que publica la comunidad.\n\n"
+    "Escribeme el modelo tal cual y te mando los enlaces:\n"
+    "  Jordan 4 Military Black\n"
+    "  Dunk Low Panda\n"
+    "  Trapstar chandal\n\n"
+    "Comandos:\n"
+    "/buscar <modelo> - buscar\n"
+    "/stats - estado del indice\n"
+    "/canales - canales que indexo\n"
+    "/ayuda - esta ayuda\n\n"
+    "Importante: el enlace va al producto; la talla se elige dentro de Hacoo "
+    "al comprar. Las fotos aun no las proceso (en pruebas): mandame el nombre "
+    "del modelo y listo."
+)
+
+
+def _authorized(update: Update, allowed: set) -> bool:
+    user = update.effective_user
+    return bool(user and user.id in allowed)
+
+
+async def _deny(update: Update) -> None:
+    await update.message.reply_text(
+        "Este bot es privado. Pide acceso a su dueño.")
+
+
+def make_handlers(cfg, db):
+    async def start(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+        if not _authorized(update, cfg.authorized_user_ids):
+            await _deny(update)
+            return
+        await update.message.reply_text(
+            "Mandame el modelo de la zapa o prenda y te busco el enlace de "
+            "Hacoo mas reciente de la comunidad.\n\n" + HELP)
+
+    async def ayuda(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+        if not _authorized(update, cfg.authorized_user_ids):
+            await _deny(update)
+            return
+        await update.message.reply_text(HELP)
+
+    async def stats(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+        if not _authorized(update, cfg.authorized_user_ids):
+            await _deny(update)
+            return
+        s = db.stats()
+        await update.message.reply_text(
+            f"Mensajes indexados: {s['msgs']}\n"
+            f"Enlaces: {s['links']} ({s['resolved']} resueltos a Hacoo)\n"
+            f"Canales: {s['channels']}")
+
+    async def canales(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+        if not _authorized(update, cfg.authorized_user_ids):
+            await _deny(update)
+            return
+        await update.message.reply_text(
+            "Indexando:\n" + "\n".join(f"- @{c}" for c in cfg.channels))
+
+    async def buscar(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+        if not _authorized(update, cfg.authorized_user_ids):
+            await _deny(update)
+            return
+        query = " ".join(ctx.args) if ctx.args else (update.message.text or "")
+        if update.message.text and update.message.text.startswith("/buscar"):
+            query = " ".join(ctx.args)
+        query = query.strip()
+        if len(query) < 3:
+            await update.message.reply_text(
+                "Dime el modelo, por ejemplo: Jordan 4 Military Black")
+            return
+        results = search(db, query, limit=5)
+        if not results:
+            await update.message.reply_text(
+                "No tengo nada para eso todavia. Prueba con el nombre en "
+                "ingles (Jordan 4, Dunk Panda...) o mas corto.")
+            return
+        lines = [f"Resultados para <b>{html.escape(query)}</b>:\n"]
+        for i, r in enumerate(results, 1):
+            extra = f" (+{r['sources']-1} fuentes)" if r["sources"] > 1 else ""
+            date = f" · {r['posted_at']}" if r["posted_at"] else ""
+            lines.append(
+                f"{i}. {html.escape(r['title'])}{extra}{date}\n"
+                f"<a href=\"{html.escape(r['link'])}\">Abrir en Hacoo</a>")
+        lines.append("\nLa talla se elige dentro de Hacoo al comprar.")
+        await update.message.reply_text(
+            "\n".join(lines), parse_mode="HTML",
+            disable_web_page_preview=True)
+
+    async def texto(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+        ctx.args = (update.message.text or "").split()
+        await buscar(update, ctx)
+
+    async def foto(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+        if not _authorized(update, cfg.authorized_user_ids):
+            await _deny(update)
+            return
+        await update.message.reply_text(
+            "Las fotos aun estan en pruebas. Mandame el nombre del modelo "
+            "(por ejemplo: Jordan 4 Military Black) y te lo busco ya.")
+
+    return {
+        "start": start, "ayuda": ayuda, "stats": stats,
+        "canales": canales, "buscar": buscar, "texto": texto, "foto": foto,
+    }

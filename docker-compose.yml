@@ -1,0 +1,18 @@
+# Replica-finder bot (Hacoo). Proyecto aislado: contenedor, volumen y red
+# propios; no publica puertos (polling saliente a la API de Telegram).
+# .env (chmod 600, NO se commitea): TELEGRAM_BOT_TOKEN y opcionales.
+services:
+  replica-bot:
+    build: .
+    image: hacoo-replica-bot:latest
+    container_name: hacoo-replica-bot
+    restart: unless-stopped
+    init: true
+    env_file: .env
+    volumes:
+      - ./data:/app/bot/data
+    deploy:
+      resources:
+        limits:
+          cpus: "0.5"
+          memory: 512M
