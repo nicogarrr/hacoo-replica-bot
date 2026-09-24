@@ -47,7 +47,10 @@ class DB:
         self.conn.execute("PRAGMA journal_mode=WAL")
         self.conn.execute("PRAGMA busy_timeout=30000")
         self.conn.executescript(SCHEMA)
-        self.conn.commit()
+        for col in ("dead_at", "checked_at"):
+            if col not in {r["name"] for r in
+                           self.conn.execute("PRAGMA table_info(links)")}:
+                self.conn.execute(f"ALTER TABLE links ADD COLUMN {col} REAL")
 
     def min_message_id(self, channel: str) -> int:
         row = self.conn.execute(
@@ -77,6 +80,28 @@ class DB:
 
     def commit(self) -> None:
         self.conn.commit()
+
+    def links_to_check(self, limit: int) -> list:
+        """Enlaces para chequeo de vida: nunca chequeados primero."""
+        return self.conn.execute(
+            """
+            SELECT id, url FROM links
+            WHERE dead_at IS NULL
+            ORDER BY checked_at IS NOT NULL, checked_at
+            LIMIT ?
+            """,
+            (limit,),
+        ).fetchall()
+
+    def mark_checked(self, link_id: int, dead: bool) -> None:
+        if dead:
+            self.conn.execute(
+                "UPDATE links SET dead_at = ?, checked_at = ? WHERE id = ?",
+                (time.time(), time.time(), link_id))
+        else:
+            self.conn.execute(
+                "UPDATE links SET checked_at = ?, dead_at = NULL WHERE id = ?",
+                (time.time(), link_id))
 
     def unresolved_links(self, limit: int) -> list:
         return self.conn.execute(
@@ -109,7 +134,7 @@ class DB:
             FROM links_fts f
             JOIN links l ON l.id = f.rowid
             JOIN messages m ON m.channel = l.channel AND m.message_id = l.message_id
-            WHERE links_fts MATCH ?
+            WHERE links_fts MATCH ? AND l.dead_at IS NULL
             ORDER BY score, m.message_id DESC
             LIMIT ?
             """,
@@ -137,7 +162,7 @@ class DB:
             FROM links_fts f
             JOIN links l ON l.id = f.rowid
             JOIN messages m ON m.channel = l.channel AND m.message_id = l.message_id
-            WHERE links_fts MATCH ?
+            WHERE links_fts MATCH ? AND l.dead_at IS NULL
             ORDER BY score, m.message_id DESC
             LIMIT ?
             """,
@@ -157,7 +182,7 @@ class DB:
                    COALESCE(l.resolved_url, l.url) AS link, l.product_id, 0.0 AS score
             FROM links l
             JOIN messages m ON m.channel = l.channel AND m.message_id = l.message_id
-            WHERE {where}
+            WHERE {where} AND l.dead_at IS NULL
             ORDER BY m.message_id DESC
             LIMIT ?
             """,
