@@ -205,9 +205,14 @@ def search(db, query: str, limit: int = 5) -> dict:
             base = brand if brand else tokens[:k]
             typed = db.search_fts_with_any(
                 base, sorted(_LEXICON[category]), limit)
-            if not typed and len(base) >= 3:
-                typed = db.search_fts_with_any(
+            if len(base) >= 3:
+                # siempre tambien sin la primera palabra: "Zapatillas
+                # Ralph Lauren Heritage" no lleva "Polo" y si no se
+                # escapa cuando la marca completa ya da resultados
+                tids0 = {t["id"] for t in typed}
+                typed += [t for t in db.search_fts_with_any(
                     base[1:], sorted(_LEXICON[category]), limit)
+                    if t["id"] not in tids0]
             tids = {t["id"] for t in typed}
             rows = list(typed) + [r for r in rows if r["id"] not in tids]
         else:
