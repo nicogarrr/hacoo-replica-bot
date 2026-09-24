@@ -72,10 +72,16 @@ def fetch_page(session: requests.Session, channel: str, before: int = 0) -> str:
 
 
 def crawl_channel(session: requests.Session, channel: str, db,
-                  max_pages: int = 40, sleep_s: float = 2.0) -> int:
-    """Rastreo incremental: retrocede hasta alcanzar mensajes ya conocidos."""
+                  max_pages: int = 40, sleep_s: float = 2.0,
+                  backfill: bool = False) -> int:
+    """Rastreo incremental: retrocede hasta alcanzar mensajes ya conocidos.
+
+    backfill=True: en vez de parar al tocar lo conocido, empieza DESDE el
+    mensaje mas antiguo que tenemos y sigue hacia atras (relleno historico).
+    """
     known_max = db.max_message_id(channel)
-    before = 0
+    known_min = db.min_message_id(channel)
+    before = known_min if (backfill and known_min) else 0
     new_count = 0
     for page in range(max_pages):
         try:
@@ -86,9 +92,8 @@ def crawl_channel(session: requests.Session, channel: str, db,
         msgs = parse_channel_page(html, channel)
         if not msgs:
             break
-        oldest_in_page = None
         for msg in msgs:
-            if msg.message_id <= known_max:
+            if known_max and msg.message_id in range(known_min, known_max + 1):
                 continue
             db.insert_message(msg.channel, msg.message_id, msg.posted_at,
                               msg.title, msg.raw_text)
@@ -98,9 +103,14 @@ def crawl_channel(session: requests.Session, channel: str, db,
         db.commit()
         ids = [m.message_id for m in msgs]
         oldest_in_page = min(ids)
-        if oldest_in_page <= known_max or len(msgs) < 5:
+        if not backfill and oldest_in_page <= known_max:
+            break
+        if backfill and known_min and oldest_in_page >= known_min:
+            break  # la pagina no retrocedio: fin del historico disponible
+        if len(msgs) < 5:
             break
         before = oldest_in_page
+        known_min = min(known_min, oldest_in_page) if known_min else oldest_in_page
         time.sleep(sleep_s)
     return new_count
 
