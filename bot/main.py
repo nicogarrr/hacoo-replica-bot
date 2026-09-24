@@ -30,7 +30,11 @@ async def indexer_loop(cfg: Config, db: DB) -> None:
         log.info("rastreo: %s enlaces nuevos", total)
         if cfg.resolve_links:
             try:
-                done = resolve_pending(session, db, cfg.resolve_rate_per_min)
+                # resuelve en hueco entre rastreos, dejando 60s de margen
+                budget_s = max(60.0, cfg.index_interval_min * 60 - 60)
+                done = await asyncio.to_thread(
+                    resolve_pending, session, db,
+                    cfg.resolve_rate_per_min, budget_s)
                 if done:
                     log.info("resolver: %s enlaces procesados", done)
             except Exception:

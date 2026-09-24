@@ -53,17 +53,29 @@ def resolve_one(session: requests.Session, url: str, max_hops: int = 4):
     return None, None
 
 
-def resolve_pending(session: requests.Session, db, rate_per_min: int = 60) -> int:
-    budget = max(1, rate_per_min // 6)  # tanda por ciclo de 10s
-    rows = db.unresolved_links(budget)
+def resolve_pending(session: requests.Session, db, rate_per_min: int = 30,
+                    max_seconds: float = 0) -> int:
+    """Resuelve a ritmo fijo hasta agotar la cola o el tiempo.
+
+    max_seconds=0 -> sin tope de tiempo (solo la cola).
+    """
+    started = time.time()
     done = 0
-    for row in rows:
-        final_url, pid = resolve_one(session, row["url"])
-        if final_url:
-            db.mark_resolved(row["id"], final_url, pid or None)
-        else:
-            db.mark_failed(row["id"])
-        done += 1
-        time.sleep(60.0 / max(1, rate_per_min))
-    db.commit()
+    delay = 60.0 / max(1, rate_per_min)
+    while True:
+        rows = db.unresolved_links(25)
+        if not rows:
+            break
+        for row in rows:
+            final_url, pid = resolve_one(session, row["url"])
+            if final_url:
+                db.mark_resolved(row["id"], final_url, pid or None)
+            else:
+                db.mark_failed(row["id"])
+            done += 1
+            time.sleep(delay)
+            if max_seconds and time.time() - started > max_seconds:
+                db.commit()
+                return done
+        db.commit()
     return done
