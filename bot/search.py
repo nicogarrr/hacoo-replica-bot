@@ -157,7 +157,9 @@ def _add(rows, results, seen, counted_rows, limit, category, lvl,
         }
         seen[key] = entry
         results.append(entry)
-        if len(results) >= limit:
+        # se acumulan de mas: la poda fina (categoria, fecha, tipada)
+        # viene despues y necesita candidatos de sobra
+        if len(results) >= limit * 4:
             return True
     return False
 
