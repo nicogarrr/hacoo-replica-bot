@@ -8,7 +8,7 @@ import requests
 
 log = logging.getLogger(__name__)
 
-DETAIL_RE = re.compile(r"/(?:detail|product)/(\d+)")
+DETAIL_RE = re.compile(r"/(?:detail|product|p)/(\d+)")
 HACOO_HOST_RE = re.compile(r"(^|\.)hacoo\.[a-z]{2,3}(\.[a-z]{2})?$", re.I)
 
 
