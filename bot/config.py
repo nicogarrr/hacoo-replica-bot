@@ -23,7 +23,7 @@ class Config:
             c.strip().lstrip("@")
             for c in os.environ.get(
                 "CHANNELS",
-                "hacoolinks,hacoolinksvip,hacoolinks10chanel,mkfashionfinds,iammmchannel,hacooenlacesdiarios,hacoofinds,hacoooofinds",
+                "hacoolinks,hacoolinksvip,hacoolinks10chanel,mkfashionfinds,iammmchannel,hacooenlacesdiarios,hacoofinds,hacoooofinds,LINKS_HACOO_ESP,hacooenlances,hacoospainn,only_hacoo",
             ).split(",")
             if c.strip()
         ]
