@@ -1,4 +1,5 @@
 """Handlers de Telegram. Interfaz en espanol."""
+import asyncio
 import html
 import logging
 
@@ -6,6 +7,7 @@ from telegram import Update
 from telegram.ext import ContextTypes
 
 from search import search
+from vision import identify_from_photo
 
 log = logging.getLogger(__name__)
 
@@ -20,9 +22,9 @@ HELP = (
     "/stats - estado del indice\n"
     "/canales - canales que indexo\n"
     "/ayuda - esta ayuda\n\n"
+    "Tambien puedes mandarme una FOTO del modelo y lo identifico yo.\n\n"
     "Importante: el enlace va al producto; la talla se elige dentro de Hacoo "
-    "al comprar. Las fotos aun no las proceso (en pruebas): mandame el nombre "
-    "del modelo y listo."
+    "al comprar."
 )
 
 
@@ -106,9 +108,34 @@ def make_handlers(cfg, db):
         if not _authorized(update, cfg.authorized_user_ids):
             await _deny(update)
             return
-        await update.message.reply_text(
-            "Las fotos aun estan en pruebas. Mandame el nombre del modelo "
-            "(por ejemplo: Jordan 4 Military Black) y te lo busco ya.")
+        if not cfg.opencode_go_api_key:
+            await update.message.reply_text(
+                "Las fotos aun no estan activas. Mandame el nombre del "
+                "modelo (por ejemplo: Jordan 4 Military Black).")
+            return
+        try:
+            photo = update.message.photo[-1]
+            tg_file = await photo.get_file()
+            image = bytes(await tg_file.download_as_bytearray())
+        except Exception:
+            log.exception("descarga de foto fallo")
+            await update.message.reply_text(
+                "No pude bajar la foto. Prueba otra vez o mandame el "
+                "nombre del modelo.")
+            return
+        await update.message.reply_text("Analizando la foto...")
+        phrase = await asyncio.to_thread(
+            identify_from_photo, image, cfg.opencode_go_api_key,
+            cfg.opencode_go_base_url, cfg.vision_model,
+            cfg.opencode_go_session)
+        if not phrase:
+            await update.message.reply_text(
+                "No saque el modelo de la foto. Mandame el nombre "
+                "(por ejemplo: Jordan 4 Military Black) y lo busco.")
+            return
+        await update.message.reply_text(f"Veo: {phrase}. Buscando...")
+        ctx.args = phrase.split()
+        await buscar(update, ctx)
 
     return {
         "start": start, "ayuda": ayuda, "stats": stats,
