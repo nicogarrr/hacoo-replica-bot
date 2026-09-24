@@ -82,13 +82,19 @@ def make_handlers(cfg, db):
             await update.message.reply_text(
                 "Dime el modelo, por ejemplo: Jordan 4 Military Black")
             return
-        results = search(db, query, limit=5)
+        found = search(db, query, limit=5)
+        results = found["results"]
         if not results:
             await update.message.reply_text(
                 "No tengo nada para eso todavia. Prueba con el nombre en "
                 "ingles (Jordan 4, Dunk Panda...) o mas corto.")
             return
-        lines = [f"Resultados para <b>{html.escape(query)}</b>:\n"]
+        if not found["exact"] and found["model"]:
+            lines = [
+                f"La <b>{html.escape(found['model'])}</b> exacta no esta en el indice.\n"
+                "Lo mas parecido:\n"]
+        else:
+            lines = [f"Resultados para <b>{html.escape(query)}</b>:\n"]
         for i, r in enumerate(results, 1):
             extra = f" (+{r['sources']-1} fuentes)" if r["sources"] > 1 else ""
             date = f" · {r['posted_at']}" if r["posted_at"] else ""

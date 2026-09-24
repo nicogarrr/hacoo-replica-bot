@@ -13,10 +13,12 @@ log = logging.getLogger(__name__)
 
 PROMPT = (
     "Eres un experto en zapatillas y ropa de marca. Identifica el articulo "
-    "de la foto: marca, modelo exacto y colorway (colores). Responde SOLO "
-    "con una frase corta de busqueda en ingles, por ejemplo: "
-    "Nike Dunk Low Panda o Jordan 4 Military Black o Trapstar tracksuit "
-    "black. Sin explicaciones, sin puntuacion final."
+    "de la foto: marca, modelo exacto, tipo de prenda y colorway. Responde "
+    "SOLO con una frase corta de busqueda en ingles que incluya SIEMPRE el "
+    "tipo (sneakers, hoodie, t-shirt, bag...), por ejemplo: Nike Dunk Low "
+    "sneakers Panda, Jordan 4 sneakers Military Black, Polo Ralph Lauren "
+    "Bedford sneakers white black o Trapstar tracksuit black. Sin "
+    "explicaciones, sin puntuacion final."
 )
 
 
