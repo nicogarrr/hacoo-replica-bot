@@ -21,6 +21,10 @@ CREATE TABLE IF NOT EXISTS links (
     resolved_at REAL,
     UNIQUE (channel, message_id, url)
 );
+CREATE TABLE IF NOT EXISTS extra_channels (
+    username TEXT PRIMARY KEY,
+    added_at REAL NOT NULL
+);
 CREATE VIRTUAL TABLE IF NOT EXISTS links_fts USING fts5(
     title, content='links', content_rowid='id', tokenize='unicode61 remove_diacritics 2'
 );
@@ -51,6 +55,33 @@ class DB:
             if col not in {r["name"] for r in
                            self.conn.execute("PRAGMA table_info(links)")}:
                 self.conn.execute(f"ALTER TABLE links ADD COLUMN {col} REAL")
+
+    def channels(self, defaults: list) -> list:
+        # Existing .env entries are never removed by this feature.
+        saved = [r["username"] for r in self.conn.execute(
+            "SELECT username FROM extra_channels ORDER BY added_at, username")]
+        return list(dict.fromkeys([*defaults, *saved]))
+
+    def add_channel(self, username: str, defaults: list) -> bool:
+        if username in {c.lower() for c in self.channels(defaults)}:
+            return False
+        if len(self.channels(defaults)) >= 35:
+            raise ValueError("Tope de 35 canales; revisa los existentes primero.")
+        self.conn.execute(
+            "INSERT INTO extra_channels (username, added_at) VALUES (?, ?)",
+            (username, time.time()))
+        return True
+
+    def channel_metrics(self, channel: str) -> dict:
+        row = self.conn.execute(
+            """SELECT (SELECT COUNT(*) FROM messages WHERE channel=?) AS posts,
+                      (SELECT COUNT(*) FROM links WHERE channel=?) AS links,
+                      (SELECT COUNT(*) FROM links WHERE channel=?
+                         AND dead_at IS NULL AND product_id IS NOT NULL) AS resolved_not_dead,
+                      (SELECT COUNT(*) FROM links WHERE channel=?
+                         AND dead_at IS NOT NULL) AS shortlinks_dead""",
+            (channel, channel, channel, channel)).fetchone()
+        return dict(row)
 
     def min_message_id(self, channel: str) -> int:
         row = self.conn.execute(
@@ -133,7 +164,7 @@ class DB:
             """
             SELECT l.id, m.title, m.posted_at, l.channel, l.message_id,
                    COALESCE(l.resolved_url, l.url) AS link, l.url AS orig_url,
-                   l.product_id, bm25(links_fts) AS score
+                   l.product_id, l.checked_at, bm25(links_fts) AS score
             FROM links_fts f
             JOIN links l ON l.id = f.rowid
             JOIN messages m ON m.channel = l.channel AND m.message_id = l.message_id
@@ -161,7 +192,7 @@ class DB:
             """
             SELECT l.id, m.title, m.posted_at, l.channel, l.message_id,
                    COALESCE(l.resolved_url, l.url) AS link, l.url AS orig_url,
-                   l.product_id, bm25(links_fts) AS score
+                   l.product_id, l.checked_at, bm25(links_fts) AS score
             FROM links_fts f
             JOIN links l ON l.id = f.rowid
             JOIN messages m ON m.channel = l.channel AND m.message_id = l.message_id
@@ -183,7 +214,7 @@ class DB:
             f"""
             SELECT l.id, m.title, m.posted_at, l.channel, l.message_id,
                    COALESCE(l.resolved_url, l.url) AS link, l.url AS orig_url,
-                   l.product_id, 0.0 AS score
+                   l.product_id, l.checked_at, 0.0 AS score
             FROM links l
             JOIN messages m ON m.channel = l.channel AND m.message_id = l.message_id
             WHERE {where} AND l.dead_at IS NULL

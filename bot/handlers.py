@@ -11,6 +11,7 @@ from channel_access import SubscriberGate
 from product_links import ProductLinks
 from liveness import check_one
 from channels import make_session
+from channel_registry import normalize_source, preview_source
 
 _live_session = None
 
@@ -33,7 +34,8 @@ HELP = (
     "Comandos:\n"
     "/buscar <modelo> - buscar\n"
     "/stats - estado del indice\n"
-    "/canales - canales que indexo\n"
+    "/canales - fuentes y métricas\n"
+    "/agregarcanal <usuario o https://t.me/s/usuario> - añadir fuente pública\n"
     "/ayuda - esta ayuda\n\n"
     "Tambien puedes mandarme una FOTO del modelo y lo identifico yo.\n\n"
     "Importante: el enlace va al producto; la talla se elige dentro de Hacoo "
@@ -107,8 +109,48 @@ def make_handlers(cfg, db):
         if not _authorized(update, cfg.authorized_user_ids):
             await _deny(update)
             return
+        channels = db.channels(cfg.channels)
+        # Telegram has a 4096 character limit; keep summary bounded.
+        lines = ["Fuentes (posts con enlace / enlaces / con ID sin 404 / 404):"]
+        for c in channels:
+            m = db.channel_metrics(c)
+            lines.append(f"@{c}: {m['posts']} / {m['links']} / "
+                         f"{m['resolved_not_dead']} / {m['shortlinks_dead']}")
+        await update.message.reply_text("\n".join(lines)[:3900])
+
+    async def agregarcanal(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
+        # Only the account owner can expand the crawl set, not Rodrigo.
+        if (not update.effective_user or update.effective_user.id != cfg.owner_id
+                or update.effective_chat.type != "private"):
+            await _deny(update)
+            return
+        if len(ctx.args) != 1:
+            await update.message.reply_text(
+                "Uso: /agregarcanal https://t.me/s/nombre_del_canal")
+            return
+        try:
+            username = normalize_source(ctx.args[0])
+            if username in {c.lower() for c in db.channels(cfg.channels)}:
+                await update.message.reply_text(f"@{username} ya está en las fuentes.")
+                return
+            preview = await asyncio.to_thread(
+                preview_source, _get_session(), username)
+            if not db.add_channel(username, cfg.channels):
+                await update.message.reply_text(f"@{username} ya estaba añadido.")
+                return
+        except (ValueError, OSError) as exc:
+            await update.message.reply_text(f"No añadí el canal: {exc}")
+            return
+        except Exception:
+            log.exception("fallo validando canal público")
+            await update.message.reply_text(
+                "No pude validar ese canal público; no lo añadí.")
+            return
         await update.message.reply_text(
-            "Indexando:\n" + "\n".join(f"- @{c}" for c in cfg.channels))
+            f"@{username} añadido. Vista previa: {preview['messages_with_links']} "
+            f"posts con enlaces y {preview['candidate_links']} enlaces "
+            "Hacoo/onlyaff candidatos. Se rastrea en el próximo ciclo; "
+            "no he comprobado aún cada producto en Hacoo.")
 
     async def buscar(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         if not await search_allowed(update, ctx):
@@ -164,9 +206,20 @@ def make_handlers(cfg, db):
         for i, r in enumerate(results, 1):
             extra = f" (+{r['sources']-1} fuentes)" if r["sources"] > 1 else ""
             date = f" · {r['posted_at']}" if r["posted_at"] else ""
-            warn = " ⚠️ viejo" if r.get("stale") else ""
+            warn = " ⚠️ enlace antiguo" if r.get("stale") else ""
+            # This proves only the original shortlink was not 404/410 at
+            # the checked time. A 200 from the Hacoo SPA proves no stock.
+            state = ("Último intento sin 404/410 (errores no prueban validez)" if
+                     r.get("checked_at") else "Shortlink sin comprobar")
+            source = (f"https://t.me/{r['channel']}/{r['message_id']}"
+                      if r["channel"].replace("_", "").isalnum()
+                      and r["message_id"] else "")
+            citation = (f'<a href="{html.escape(source, quote=True)}">'
+                        f'@{html.escape(r["channel"])}</a>' if source else
+                        html.escape(r["channel"]))
             lines.append(
                 f"{i}. {html.escape(r['title'])}{extra}{date}{warn}\n"
+                f"Fuente: {citation} · {state} (no verifica disponibilidad).\n"
                 f"<a href=\"{html.escape(product_links.for_result(r), quote=True)}\">"
                 "Abrir en Hacoo</a>")
         lines.append("\nLa talla se elige dentro de Hacoo al comprar.")
@@ -216,5 +269,6 @@ def make_handlers(cfg, db):
 
     return {
         "start": start, "ayuda": ayuda, "stats": stats,
-        "canales": canales, "buscar": buscar, "texto": texto, "foto": foto,
+        "canales": canales, "agregarcanal": agregarcanal,
+        "buscar": buscar, "texto": texto, "foto": foto,
     }
