@@ -142,6 +142,7 @@ def _add(rows, results, seen, counted_rows, limit, category, lvl,
                 seen[key].update({
                     "id": r["id"], "link": r["link"],
                     "orig_url": r["orig_url"], "posted_at": posted,
+                    "product_id": r["product_id"],
                 })
             continue
         entry = {
@@ -149,6 +150,7 @@ def _add(rows, results, seen, counted_rows, limit, category, lvl,
             "title": clean_title(r["title"]),
             "link": r["link"],
             "orig_url": r["orig_url"],
+            "product_id": r["product_id"],
             "channel": r["channel"],
             "posted_at": posted,
             "sources": 1,

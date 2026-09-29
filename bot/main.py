@@ -73,8 +73,8 @@ async def main() -> None:
     app.add_handler(CommandHandler("stats", handlers["stats"]))
     app.add_handler(CommandHandler("canales", handlers["canales"]))
     app.add_handler(CommandHandler("buscar", handlers["buscar"]))
-    app.add_handler(MessageHandler(filters.PHOTO, handlers["foto"]))
-    app.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, handlers["texto"]))
+    app.add_handler(MessageHandler(filters.PHOTO & filters.ChatType.PRIVATE, handlers["foto"]))
+    app.add_handler(MessageHandler(filters.TEXT & filters.ChatType.PRIVATE & ~filters.COMMAND, handlers["texto"]))
 
     indexer = asyncio.create_task(indexer_loop(cfg, db))
     try:

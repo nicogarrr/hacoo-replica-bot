@@ -44,3 +44,27 @@ pip install -r requirements.txt
 python -m pytest tests/ -q
 TELEGRAM_BOT_TOKEN=... DB_PATH=data/replicas.db python bot/main.py
 ```
+
+## Canal propio (preparado, apagado por defecto)
+
+El canal de Telegram es de difusión y no recibe preguntas de suscriptores.
+Los miembros podrán pulsar `https://t.me/Hacoo_brother_bot` y buscar **por
+privado**. El bot comprobará en cada consulta que son miembros del canal; no
+comparte resultados en el canal, no revela listas de miembros y conserva
+`/stats`, `/canales` y la búsqueda por foto solo para Nico/Rodrigo.
+
+Para activarlo después de la aprobación, un operador con acceso al servidor
+debe: (1) obtener el ID numérico del canal por Telegram, verificar que el
+bot es admin y `getChatMember` distingue miembro y no miembro; (2) poner
+`PUBLIC_CHANNEL_ID=-100...` y `PUBLIC_SEARCH_ENABLED=1` en `.env`; (3)
+reiniciar solo este contenedor y comprobar una consulta privada de prueba
+con Nico, un suscriptor distinto y un no miembro. Sin ID o con un error de
+Telegram, el acceso falla cerrado. **No se activa con el código solo.**
+
+Los resultados usan el enlace ya resuelto y guardado en el índice (o el
+shortlink original si no se resolvió). No se fabrican URLs `/detail/<id>`.
+Cuando la afiliación esté aprobada y el panel confirme el formato, se puede
+montar un fichero JSON `{"12345": "https://enlace-verificado"}` dentro del
+contenedor y configurar `AFFILIATE_MAPPING_FILE=/ruta/links.json`; el ID
+procede de `resolver.py`. Sin fichero válido no hay reescritura de enlaces.
+**No convertir a afiliación enlaces sin ID, ni atribuir ventas a URLs directas.**
