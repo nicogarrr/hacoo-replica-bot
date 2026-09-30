@@ -66,8 +66,9 @@ def index_offer(db, message, url, now=None):
         return False
     # Multi-product posts cannot bind a price pair reliably to one product.
     identities = {offer_identity(u) for u in message.links}
-    identities.discard(None)
-    price, before = _prices(message.raw_text) if len(identities) == 1 else (None, None)
+    # An unrecognized product/agent URL may refer to a second item; do not
+    # attach the post's price to the only identity our parser recognizes.
+    price, before = _prices(message.raw_text) if len(identities) == 1 and None not in identities else (None, None)
     db.conn.execute("""INSERT INTO community_offers
        (namespace,identity,channel,message_id,title,original_url,posted_ts,
         price_cents,previous_cents) VALUES(?,?,?,?,?,?,?,?,?)
@@ -112,9 +113,12 @@ def trends(db, namespace='hacoo', days=7, limit=10, now=None):
         if row['identity'] not in grouped:
             grouped[row['identity']] = dict(row, source_channels=set(), posts=0)
         r = grouped[row['identity']]
-        r['source_channels'].add(row['channel']); r['posts'] += 1
+        r['source_channels'].add(row['channel'])
+        r.setdefault('post_keys',set()).add((row['channel'],row['message_id']))
+        r['posts'] = len(r['post_keys'])
     result = []
     for r in grouped.values():
+        r.pop('post_keys',None)
         age_days = max(0, (now-r['posted_ts'])/86400)
         r['sources'] = len(r.pop('source_channels'))
         before, price = r['previous_cents'],r['price_cents']
