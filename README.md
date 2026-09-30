@@ -156,3 +156,11 @@ Cinco muestras de producción contrastadas 2026-10-01: 14642740, 14642718,
 tres eran resolved/not-dead en BD: eso NO demuestra producto vivo. Las últimas
 dos tenían dead_at: eso NO demuestra borrado global. Fixtures documentan etiquetas
 sin confundir estado de transporte con existencia de producto.
+
+### Resultados después del filtrado
+
+Buscar recoge hasta 15 candidatos y presenta hasta cinco: verifica con el MISMO
+presupuesto compartido de 8s/12 checks. Si los primeros mueren, prueba candidatos
+posteriores sin ampliar llamadas. Confirmados primero, avisos sin botón después.
+El encabezado de modelo exacto se calcula sobre botones realmente confirmados,
+no sobre un candidato muerto u omitido. Sin inventar stock o cambiar OFF.
