@@ -222,7 +222,7 @@ class DB:
                    l.product_id, l.checked_at, 0.0 AS score
             FROM links l
             JOIN messages m ON m.channel = l.channel AND m.message_id = l.message_id
-            WHERE {where} AND l.dead_at IS NULL
+            WHERE ({where}) AND l.dead_at IS NULL
             ORDER BY m.message_id DESC
             LIMIT ?
             """,
@@ -250,7 +250,7 @@ class DB:
         row = self.conn.execute(
             "SELECT (SELECT COUNT(*) FROM messages) AS msgs,"
             " (SELECT COUNT(*) FROM links) AS links,"
-            " (SELECT COUNT(*) FROM links WHERE resolved_at IS NOT NULL) AS resolved,"
+            " (SELECT COUNT(*) FROM links WHERE product_id IS NOT NULL AND resolved_url IS NOT NULL) AS resolved,"
             " (SELECT COUNT(DISTINCT channel) FROM messages) AS channels"
         ).fetchone()
         return dict(row)

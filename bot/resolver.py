@@ -2,7 +2,8 @@
 import logging
 import re
 import time
-from urllib.parse import urlparse
+from urllib.parse import urlparse, urljoin
+from url_policy import safe_product_url, is_hacoo_url
 
 import requests
 
@@ -17,13 +18,6 @@ def extract_product_id(url: str) -> str:
     return m.group(1) if m else ""
 
 
-def is_hacoo_url(url: str) -> bool:
-    try:
-        return bool(HACOO_HOST_RE.search(urlparse(url).netloc))
-    except Exception:
-        return False
-
-
 def resolve_one(session: requests.Session, url: str, max_hops: int = 4):
     """Sigue redirecciones a mano hasta Hacoo o agotar hops.
 
@@ -31,6 +25,8 @@ def resolve_one(session: requests.Session, url: str, max_hops: int = 4):
     """
     current = url
     for _ in range(max_hops):
+        if not safe_product_url(current):
+            return None, None
         if is_hacoo_url(current) and extract_product_id(current):
             return current, extract_product_id(current)
         try:
@@ -38,12 +34,12 @@ def resolve_one(session: requests.Session, url: str, max_hops: int = 4):
             r = session.get(current, allow_redirects=False, timeout=15, stream=True)
             r.close()
             if r.status_code in (301, 302, 303, 307, 308) and r.headers.get("Location"):
-                current = r.headers["Location"]
+                current = urljoin(current, r.headers["Location"])
                 continue
             if r.status_code == 200:
                 if is_hacoo_url(current):
                     return current, extract_product_id(current)
-                return current, extract_product_id(current)
+                return current, ""
             return None, None
         except Exception as e:
             log.debug("resolver %s: %s", current, e)

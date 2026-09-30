@@ -3,7 +3,7 @@ import re
 from urllib.parse import urlparse
 
 from channels import fetch_page, parse_channel_page
-from resolver import is_hacoo_url
+from url_policy import safe_product_url
 
 _USERNAME = re.compile(r"^[A-Za-z][A-Za-z0-9_]{4,31}$")
 _SHORTLINK_HOSTS = {"onlyaff.app", "c.onlyaff.app"}
@@ -27,12 +27,7 @@ def normalize_source(value: str) -> str:
 
 
 def _product_candidate(url: str) -> bool:
-    try:
-        parsed = urlparse(url)
-        return (parsed.scheme == "https" and parsed.hostname is not None
-                and (is_hacoo_url(url) or parsed.hostname in _SHORTLINK_HOSTS))
-    except ValueError:
-        return False
+    return safe_product_url(url)
 
 
 def preview_source(session, username: str) -> dict:
