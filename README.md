@@ -254,3 +254,11 @@ Histórico FTS que ya estuviera dañado no se repara automáticamente en esta mi
 Crawl valida usernames/cursor también en el límite fetch, no solo /agregarcanal.
 CHANNELS inválido falla antes de arranque; entradas guardadas inválidas no producen
 requests construidos con query/path inyectados. No cambia canales válidos ni límite.
+
+### Redirecciones de la fuente
+
+Vista Telegram se solicita sin redirects automáticos. Solo hasta cuatro saltos
+HTTPS t.me/www.t.me con mismo `/s/username` y cursor; destinos externos, login,
+otro canal o cursor distinto se rechazan antes de GET. Respuestas se cierran aun
+al fallar. Una redirección legítima fuera de ese formato requiere revisión,
+no se sigue silenciosamente. Ninguna cookie/sesión privada se necesita.
