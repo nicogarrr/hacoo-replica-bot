@@ -257,9 +257,7 @@ def make_handlers(cfg, db):
         results = alive
         if not results:
             await update.message.reply_text(
-                "Lo que tenia para eso son enlaces viejos y ya estan "
-                "muertos (los de Hacoo duran ~1 mes). Cuando un canal "
-                "publique uno nuevo saldra aqui.")
+                "No hay enlace seguro comprobado para esos resultados. Las rutas están caídas o no se pudo comprobar el producto.")
             return
         for i, r in enumerate(results, 1):
             extra = f" (+{r['sources']-1} fuentes)" if r["sources"] > 1 else ""

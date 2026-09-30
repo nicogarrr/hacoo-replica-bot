@@ -2,11 +2,18 @@ import sys
 import time
 from pathlib import Path
 import requests
+import pytest
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]/'bot'))
 from db import DB
 from link_health import LinkHealth, choose_link
 from trends import format_offer
 from test_crawler_regressions import Resp, Session
+
+@pytest.fixture(autouse=True)
+def isolate_route_tests_from_product_probe(monkeypatch):
+    # Original route-check regressions. SSR product checker tested separately.
+    monkeypatch.setattr(LinkHealth, 'probe_product',
+                        lambda *a, **k: ('present', 'ficha presente; stock no verificado'))
 
 def rows():
     db=DB(':memory:')
@@ -41,7 +48,7 @@ def test_200_shortlink_not_treated_as_product_and_spa_only_route():
     h=LinkHealth()
     assert h.check(Session([Resp(200)]),'https://onlyaff.app/a').status=='unknown'
     result=h.check(Session([Resp(200)]),'https://hacoo.app/detail/123')
-    assert result.status=='reachable' and 'producto no verificado' in result.reason
+    assert result.status=='reachable' and 'stock no verificado' in result.reason
 
 def test_cache_short_lived_and_hostile_redirect_not_followed(monkeypatch):
     clock=[1.0];monkeypatch.setattr('link_health.time.monotonic',lambda:clock[0])
@@ -88,7 +95,7 @@ def test_search_and_trends_handlers_omit_dead_replace_or_warn(monkeypatch):
     from channels import ChannelMessage
     from datetime import datetime,timezone
     for command, responses, expected in [
-        ('buscar',[Resp(404),Resp(404)],'muertos'),
+        ('buscar',[Resp(404),Resp(404)],'rutas están caídas'),
         ('buscar',[requests.Timeout(),requests.Timeout()],'puede estar caído'),
         ('buscar',[Resp(404),Resp(302,'https://hacoo.app/detail/123'),Resp(200)],'Abrir en Hacoo'),
         ('tendencias',[requests.Timeout(),requests.Timeout()],'puede estar caído'),
