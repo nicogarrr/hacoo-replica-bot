@@ -70,6 +70,12 @@ class DB:
                 self.conn.execute("PRAGMA table_info(links)")}:
             self.conn.execute("ALTER TABLE links ADD COLUMN resolve_attempts INTEGER NOT NULL DEFAULT 0")
 
+        self.conn.executescript("""
+            CREATE INDEX IF NOT EXISTS links_product_alive ON links(product_id,id) WHERE dead_at IS NULL;
+            CREATE INDEX IF NOT EXISTS links_pending_resolution ON links(resolve_retry_at,id) WHERE resolved_at IS NULL AND dead_at IS NULL;
+            CREATE INDEX IF NOT EXISTS links_pending_check ON links(checked_at,id) WHERE dead_at IS NULL;
+        """)
+
     def channels(self, defaults: list) -> list:
         # Existing .env entries are never removed by this feature.
         saved = [r["username"] for r in self.conn.execute(

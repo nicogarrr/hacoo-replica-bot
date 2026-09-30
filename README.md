@@ -181,3 +181,12 @@ conservador 3800 caracteres por mensaje. Un bloque demasiado largo (por ejemplo
 URL firmada gigante) se omite con aviso, no se corta dentro del href. Títulos de
 búsqueda limitados a 200 caracteres antes de escapar HTML. No se pierde silencio
 por superar el límite de Telegram con cinco fichas extensas.
+
+### Índice disperso y rendimiento
+
+Un rango min..max de posts conocidos ya no se interpreta como completo: un post
+hueco dentro de ese rango se procesa si aparece en la página. Inserts idempotentes
+mantienen duplicados a cero. Mensajes/nav IDs cuyo data-post no coincide con el
+canal pedido se ignoran, para no atribuir fuente equivocada. Índices parciales de
+SQLite aceleran búsqueda de alternativa por ID y colas resolver/liveness sin
+borrar datos. No hace recrawl histórico automático ni amplía fuentes.
