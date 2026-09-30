@@ -164,3 +164,12 @@ presupuesto compartido de 8s/12 checks. Si los primeros mueren, prueba candidato
 posteriores sin ampliar llamadas. Confirmados primero, avisos sin botón después.
 El encabezado de modelo exacto se calcula sobre botones realmente confirmados,
 no sobre un candidato muerto u omitido. Sin inventar stock o cambiar OFF.
+
+### Apagado del indexador
+
+Al cancelar, espera a que termine el trabajo síncrono activo antes de cerrar su
+sesión/SQLite: cancelar `to_thread` no detiene el hilo. El indexador solo arranca
+tras polling inicializado; fallos parciales del arranque no llaman stop de un
+updater que nunca empezó. INDEXER_ONLY también cierra DB en salida.
+Un apagado puede tardar hasta que termine el crawl/resolver acotado activo;
+no se promete parada inmediata ni se interrumpe una operación SQLite en vuelo.
