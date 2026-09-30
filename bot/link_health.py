@@ -22,8 +22,21 @@ class LinkHealth:
         self.cache = {}
         self.lock = threading.Lock()
         self.product_cache = {}
+        # Fixed striped lock arrays avoid unbounded per-URL lock memory.
+        self.route_locks = [threading.Lock() for _ in range(32)]
+        self.product_locks = [threading.Lock() for _ in range(32)]
 
     def probe_product(self, session, product_id, deadline=None):
+        lock = self.product_locks[hash(str(product_id)) % 32]
+        remaining = max(0, deadline-time.monotonic()) if deadline is not None else self.timeout
+        if not lock.acquire(timeout=remaining):
+            return 'unknown', 'otra comprobación de producto en curso; presupuesto agotado'
+        try:
+            return self._probe_product(session,product_id,deadline)
+        finally:
+            lock.release()
+
+    def _probe_product(self, session, product_id, deadline=None):
         if not re.fullmatch(r'[0-9]{1,15}', str(product_id)):
             return 'unknown', 'ID no verificable'
         now = time.monotonic()
@@ -71,6 +84,16 @@ class LinkHealth:
         return state
 
     def check(self, session, url, deadline=None):
+        lock = self.route_locks[hash(str(url)) % 32]
+        remaining = max(0, deadline-time.monotonic()) if deadline is not None else self.timeout
+        if not lock.acquire(timeout=remaining):
+            return Health('unknown',url,'otra comprobación en curso; presupuesto agotado')
+        try:
+            return self._check(session,url,deadline)
+        finally:
+            lock.release()
+
+    def _check(self, session, url, deadline=None):
         if not safe_product_url(url):
             return Health('dead', '', 'enlace no seguro')
         now = time.monotonic()
