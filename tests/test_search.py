@@ -122,7 +122,8 @@ def test_audit_source_and_checked_state_survive_dedup(tmp_path):
     # We do not claim that the Hacoo product exists or is in stock.
 
 
-def test_audit_numeric_id_not_text_search(tmp_path):
+def test_audit_numeric_id_exact_search(tmp_path):
     db = make_db(tmp_path)
-    # Existing behavior documented. Requires separately scoped exact-ID search.
-    assert search(db, "100")["results"] == []
+    result = search(db, "100")
+    assert result["exact"] is True
+    assert result["results"][0]["product_id"] == "100"
