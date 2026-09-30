@@ -241,3 +241,7 @@ prueba de muerte y se mantienen sometidos al probe de vida/existencia.
 Tendencias no confía en un product_id legado que difiera del ID de resolved_url:
 no mezcla esas ofertas. Precio antiguo/corrupto que no cumpla antes>ahora>0 y
 reducción <=95% se omite del ranking/publicación, no anuncia descuento negativo.
+
+No se atribuye un precio si el post contiene un enlace adicional no reconocido:
+podría ser otro producto que el parser aún no entiende. Varias URLs resueltas al
+mismo producto dentro de un mismo post cuentan como un post, no como repetición.

@@ -122,3 +122,20 @@ def test_legacy_invalid_price_pair_not_ranked_as_discount():
     r=trends(db,now=NOW)[0]
     assert r['price_cents'] is None and r['discount_pct'] is None
     assert 'El post anuncia' not in format_offer(r)
+
+def test_unrecognized_second_product_suppresses_price_attribution():
+    db=DB(':memory:')
+    offer(db,'sourcea',1,'https://hacoo.app/detail/1',text='Antes 100 EUR ahora 50 EUR',
+          links=['https://hacoo.app/detail/1','https://unknown-agent.test/item/2'])
+    r=trends(db,now=NOW)[0]
+    assert r['discount_pct'] is None and r['price_cents'] is None
+
+def test_two_resolved_links_same_post_count_as_one_post():
+    db=DB(':memory:')
+    for n,u in enumerate(['https://onlyaff.app/a','https://onlyaff.app/b'],1):
+        offer(db,'sourcea',1,u)
+        db.insert_message('sourcea',1,'','Jordan','')
+        db.insert_link('sourcea',1,u)
+        db.mark_resolved(n,'https://hacoo.app/detail/123','123')
+    r=trends(db,now=NOW)[0]
+    assert r['sources']==1 and r['posts']==1
