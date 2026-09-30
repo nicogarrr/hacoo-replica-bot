@@ -26,6 +26,7 @@ def _get_session():
     return _live_session
 from trends import trends, format_offer
 from link_health import LinkHealth, choose_link
+from verified_results import verify_results, confirmed_model_present
 _link_health = LinkHealth()
 from vision import identify_from_photo
 
@@ -224,7 +225,7 @@ def make_handlers(cfg, db):
                 "Dime el modelo, por ejemplo: Jordan 4 Military Black")
             return
         try:
-            found = search(db, query, limit=5)
+            found = search(db, query, limit=15)
         except sqlite3.Error:
             log.exception("fallo buscando en el indice")
             await update.message.reply_text("No pude consultar el índice. Prueba otra vez.")
@@ -235,30 +236,21 @@ def make_handlers(cfg, db):
                 "No tengo nada para eso todavia. Prueba con el nombre en "
                 "ingles (Jordan 4, Dunk Panda...) o mas corto.")
             return
-        if not found["exact"] and found["model"]:
-            lines = [
-                f"La <b>{html.escape(found['model'])}</b> exacta no esta en el indice.\n"
-                "Lo mas parecido:\n"]
-        else:
-            lines = [f"Resultados para <b>{html.escape(query)}</b>:\n"]
-        # chequeo en vivo de enlaces viejos (>25 dias): el shortlink 404
-        # = muerto, se marca y se oculta antes de ensenarlo
-        alive = []
+        # Overfetch allows confirmed survivors beyond the first dead results.
         deadline = time.monotonic() + 8
-        budget = [12] # shared across up to five results; bounded network cost
-        for r in results:
-            if not safe_product_url(r["orig_url"]):
-                continue
-            checked = await asyncio.to_thread(
-                choose_link, _get_session(), db, r, _link_health,
-                product_links.for_result(r), budget, deadline)
-            if checked:
-                alive.append(checked)
-        results = alive
+        budget = [12]
+        results = await asyncio.to_thread(
+            verify_results, _get_session(), db, results, _link_health,
+            product_links, budget, deadline, 5)
         if not results:
             await update.message.reply_text(
                 "No hay enlace seguro comprobado para esos resultados. Las rutas están caídas o no se pudo comprobar el producto.")
             return
+        if found["model"] and not confirmed_model_present(results,found["model"]):
+            lines = [f"No pude confirmar un enlace del modelo <b>{html.escape(found['model'])}</b>.\n"
+                     "Coincidencias disponibles o pendientes de comprobar:\n"]
+        else:
+            lines = [f"Resultados para <b>{html.escape(query)}</b>:\n"]
         for i, r in enumerate(results, 1):
             extra = f" (+{r['sources']-1} fuentes)" if r["sources"] > 1 else ""
             date = f" · {r['posted_at']}" if r["posted_at"] else ""
