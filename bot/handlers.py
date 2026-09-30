@@ -3,6 +3,7 @@ import asyncio
 import html
 import logging
 import sqlite3
+import time
 from url_policy import safe_product_url
 
 from telegram import Update
@@ -24,6 +25,8 @@ def _get_session():
         _live_session = make_session()
     return _live_session
 from trends import trends, format_offer
+from link_health import LinkHealth, choose_link
+_link_health = LinkHealth()
 from vision import identify_from_photo
 
 log = logging.getLogger(__name__)
@@ -141,9 +144,30 @@ def make_handlers(cfg, db):
             return
         await update.message.reply_text(
             "Borradores: repetición entre fuentes y frescura, no ventas ni popularidad verificada. No he publicado nada en el canal.")
+        budget = [8]
+        deadline = time.monotonic() + 8
+        delivered = 0
         for row in rows:
+            if row["namespace"] == "hacoo":
+                linked = db.conn.execute("SELECT id FROM links WHERE channel=? AND message_id=? AND url=?",
+                    (row["channel"],row["message_id"],row["original_url"])).fetchone()
+                if not linked:
+                    continue
+                candidate = dict(row, id=linked["id"], orig_url=row["original_url"],
+                                 link=row["original_url"], product_id=(row["identity"] if row["identity"].isdecimal() else None))
+                checked = await asyncio.to_thread(choose_link, _get_session(), db,
+                                                  candidate, _link_health, None, budget, deadline)
+                if not checked:
+                    continue
+                row = dict(row, original_url=checked["link"], health=checked["health"])
+            else:
+                # Marketplace is offline-only: do not imply link health.
+                row = dict(row, original_url="", health="Puede estar caído: marketplace sin comprobación en vivo.")
             await update.message.reply_text(format_offer(row), parse_mode="HTML",
                                            disable_web_page_preview=True)
+            delivered += 1
+        if not delivered:
+            await update.message.reply_text("Las rutas comprobadas están caídas o no hay enlace seguro disponible. No he publicado nada.")
 
     async def agregarcanal(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         # Only the account owner can expand the crawl set, not Rodrigo.
@@ -220,16 +244,16 @@ def make_handlers(cfg, db):
         # chequeo en vivo de enlaces viejos (>25 dias): el shortlink 404
         # = muerto, se marca y se oculta antes de ensenarlo
         alive = []
+        deadline = time.monotonic() + 8
+        budget = [12] # shared across up to five results; bounded network cost
         for r in results:
-            if not product_links.for_result(r) or not safe_product_url(r["orig_url"]):
+            if not safe_product_url(r["orig_url"]):
                 continue
-            if r.get("stale"):
-                dead = await asyncio.to_thread(
-                    check_one, _get_session(), r["orig_url"])
-                db.mark_checked(r["id"], dead)
-                if dead:
-                    continue
-            alive.append(r)
+            checked = await asyncio.to_thread(
+                choose_link, _get_session(), db, r, _link_health,
+                product_links.for_result(r), budget, deadline)
+            if checked:
+                alive.append(checked)
         results = alive
         if not results:
             await update.message.reply_text(
@@ -243,19 +267,19 @@ def make_handlers(cfg, db):
             warn = " ⚠️ enlace antiguo" if r.get("stale") else ""
             # This proves only the original shortlink was not 404/410 at
             # the checked time. A 200 from the Hacoo SPA proves no stock.
-            state = ("Último intento sin 404/410 (errores no prueban validez)" if
-                     r.get("checked_at") else "Shortlink sin comprobar")
+            state = r["health"]
             source = (f"https://t.me/{r['channel']}/{r['message_id']}"
                       if r["channel"].replace("_", "").isalnum()
                       and r["message_id"] else "")
             citation = (f'<a href="{html.escape(source, quote=True)}">'
                         f'@{html.escape(r["channel"])}</a>' if source else
                         html.escape(r["channel"]))
+            destination = (f'<a href="{html.escape(r["link"], quote=True)}">Abrir en Hacoo</a>'
+                           if r["link"] else "Enlace omitido: puede estar caído.")
             lines.append(
                 f"{i}. {html.escape(r['title'])}{extra}{date}{warn}\n"
                 f"Fuente: {citation} · {state} (no verifica disponibilidad).\n"
-                f"<a href=\"{html.escape(product_links.for_result(r), quote=True)}\">"
-                "Abrir en Hacoo</a>")
+                + destination)
         lines.append("\nLa talla se elige dentro de Hacoo al comprar.")
         await update.message.reply_text(
             "\n".join(lines), parse_mode="HTML",
