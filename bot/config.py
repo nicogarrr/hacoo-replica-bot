@@ -46,6 +46,13 @@ class Config:
         self.opencode_go_session = os.environ.get(
             "OPENCODE_GO_SESSION", "hacoo-replica-bot")
 
-    def validate(self) -> None:
-        if not self.telegram_bot_token:
+    def validate(self, require_token=True) -> None:
+        for name, low, high in (("index_interval_min", 1, 1440),
+                                ("max_pages_per_run", 1, 400),
+                                ("resolve_rate_per_min", 1, 120)):
+            if not low <= getattr(self, name) <= high:
+                raise SystemExit(f"Configuración inválida: {name} debe estar entre {low} y {high}.")
+        if not self.db_path.strip():
+            raise SystemExit("DB_PATH no puede estar vacío.")
+        if require_token and not self.telegram_bot_token:
             raise SystemExit("Falta TELEGRAM_BOT_TOKEN en el entorno (.env).")

@@ -7,7 +7,7 @@ Unknown formats fail closed. Canonical URLs are NOT affiliate URLs.
 import re
 from urllib.parse import urlsplit, parse_qs, unquote
 
-ROOTS = {'taobao.com': 'taobao', 'tmall.com': 'taobao',
+ROOTS = {'taobao.com': 'taobao', 'tmall.com': 'tmall',
          'weidian.com': 'weidian', '1688.com': '1688'}
 AGENTS = {'cssbuy.com', 'cnfans.com'}
 PLATFORMS = {'taobao': 'taobao', 'weidian': 'weidian', '1688': '1688',
@@ -29,8 +29,8 @@ def normalize_marketplace_link(url, _depth=0):
         platform = next((v for root, v in ROOTS.items()
                          if host == root or host.endswith('.' + root)), '')
         pid = ''
-        if platform in {'taobao', 'weidian'}:
-            pid = one('id' if platform == 'taobao' else 'itemid')
+        if platform in {'taobao', 'tmall', 'weidian'}:
+            pid = one('id' if platform in {'taobao', 'tmall'} else 'itemid')
         elif platform == '1688':
             m = re.fullmatch(r'/offer/(\d+)\.html', p.path)
             pid = m.group(1) if m else ''
@@ -48,7 +48,8 @@ def normalize_marketplace_link(url, _depth=0):
                 pid = one('id')
         if not platform or not re.fullmatch(r'[0-9]+', pid):
             return None
-        canonical = {'taobao': f'https://item.taobao.com/item.htm?id={pid}',
+        canonical = {'tmall': f'https://detail.tmall.com/item.htm?id={pid}',
+                     'taobao': f'https://item.taobao.com/item.htm?id={pid}',
                      'weidian': f'https://weidian.com/item.html?itemID={pid}',
                      '1688': f'https://detail.1688.com/offer/{pid}.html'}[platform]
         return {'marketplace': platform, 'product_id': pid, 'canonical_url': canonical}

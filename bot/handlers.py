@@ -132,8 +132,8 @@ def make_handlers(cfg, db):
             await _deny(update)
             return
         namespace = ctx.args[0].lower() if ctx.args else "hacoo"
-        if namespace not in {"hacoo", "taobao", "weidian", "1688"}:
-            await update.message.reply_text("Uso: /tendencias hacoo|taobao|weidian|1688")
+        if namespace not in {"hacoo", "taobao", "tmall", "weidian", "1688"}:
+            await update.message.reply_text("Uso: /tendencias hacoo|taobao|tmall|weidian|1688")
             return
         rows = trends(db, namespace=namespace, limit=5)
         if not rows:

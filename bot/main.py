@@ -58,12 +58,13 @@ async def indexer_loop(cfg: Config, db: DB) -> None:
 async def main() -> None:
     cfg = Config()
     import os
-    if os.environ.get("INDEXER_ONLY") == "1":
+    indexer_only = os.environ.get("INDEXER_ONLY") == "1"
+    cfg.validate(require_token=not indexer_only)
+    if indexer_only:
         # Modo solo indice: precalienta la base sin token de Telegram.
         db = DB(cfg.db_path)
         await indexer_loop(cfg, db)
         return
-    cfg.validate()
     db = DB(cfg.db_path)
     handlers = make_handlers(cfg, db)
 
