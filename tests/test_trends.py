@@ -105,3 +105,20 @@ def test_resolved_hacoo_shortlinks_unify_dead_omitted():
     db.mark_checked(3,True)
     r=trends(db,now=NOW)
     assert len(r)==1 and r[0]['identity']=='999' and r[0]['sources']==2
+
+def test_legacy_resolved_pid_mismatch_cannot_merge_unrelated_offers():
+    db=DB(':memory:')
+    for n in [1,2]:
+        u=f'https://onlyaff.app/{n}'
+        offer(db,'sourcea',n,u)
+        db.insert_message('sourcea',n,'','Jordan','');db.insert_link('sourcea',n,u)
+        db.mark_resolved(n,f'https://hacoo.app/detail/{n}','999')
+    result=trends(db,now=NOW)
+    assert len(result)==2 and all(r['identity']!='999' for r in result)
+
+def test_legacy_invalid_price_pair_not_ranked_as_discount():
+    db=DB(':memory:');offer(db,'sourcea',1,'https://hacoo.app/detail/1')
+    db.conn.execute('UPDATE community_offers SET price_cents=20000,previous_cents=10000')
+    r=trends(db,now=NOW)[0]
+    assert r['price_cents'] is None and r['discount_pct'] is None
+    assert 'El post anuncia' not in format_offer(r)
