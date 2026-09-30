@@ -152,7 +152,7 @@ def _add(rows, results, seen, counted_rows, limit, category, lvl,
             (u.scheme.lower(), u.netloc.lower(), u.path, u.query, ""))
         posted = (r["posted_at"] or "")[:10]
         if key in seen:
-            seen[key]["source_channels"].add(r["channel"])
+            seen[key]["source_channels"].add(r["channel"].lower())
             seen[key]["sources"] = len(seen[key]["source_channels"])
             # el enlace mas reciente del mismo producto es el que vale:
             # los enlaces de Hacoo mueren en ~1 mes
@@ -177,7 +177,7 @@ def _add(rows, results, seen, counted_rows, limit, category, lvl,
             "checked_at": r["checked_at"],
             "posted_at": posted,
             "sources": 1,
-            "source_channels": {r["channel"]},
+            "source_channels": {r["channel"].lower()},
             "lvl": lvl,
             "typed": r["id"] in typed_ids,
         }

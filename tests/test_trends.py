@@ -139,3 +139,10 @@ def test_two_resolved_links_same_post_count_as_one_post():
         db.mark_resolved(n,'https://hacoo.app/detail/123','123')
     r=trends(db,now=NOW)[0]
     assert r['sources']==1 and r['posts']==1
+
+def test_telegram_case_alias_not_two_sources_or_posts():
+    db=DB(':memory:')
+    offer(db,'SourceA',1,'https://hacoo.app/detail/123')
+    offer(db,'sourcea',1,'https://hacoo.app/detail/123')
+    r=trends(db,now=NOW)[0]
+    assert r['sources']==1 and r['posts']==1
