@@ -216,3 +216,9 @@ mismo ID esperan la comprobación activa y reutilizan caché en vez de duplicar
 GETs. La espera usa presupuesto restante; si acaba, devuelve unknown sin botón.
 32 locks fijos por tipo, no una estructura ilimitada por usuario/URL. Productos
 diferentes pueden compartir franja y esperar: fail-closed, no mayor presión HTTP.
+
+### Estados SSR inconsistentes
+
+Dos `__F_STATE__` o estado abnormal=true con detalle activo se tratan como unknown,
+no botón. `status` exige entero 1, no boolean true. Primera búsqueda tras un
+reinicio no queda bloqueada por cooldown cuando monotonic todavía es menor de 5s.
