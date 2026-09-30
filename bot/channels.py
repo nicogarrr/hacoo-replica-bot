@@ -11,6 +11,7 @@ from dataclasses import dataclass, field
 import requests
 from bs4 import BeautifulSoup
 from url_policy import safe_product_url
+from trends import index_offer
 
 log = logging.getLogger(__name__)
 
@@ -108,6 +109,7 @@ def crawl_channel(session: requests.Session, channel: str, db,
             db.insert_message(msg.channel, msg.message_id, msg.posted_at,
                               msg.title, msg.raw_text)
             for link in msg.links:
+                index_offer(db, msg, link)
                 if safe_product_url(link):
                     db.insert_link(msg.channel, msg.message_id, link)
                     new_count += 1
