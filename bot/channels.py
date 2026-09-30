@@ -38,7 +38,7 @@ def parse_channel_page(html: str, channel: str) -> list:
     for div in soup.select("div.tgme_widget_message"):
         post = div.get("data-post", "")
         m = re.match(r"([^/]+)/(\d+)$", post)
-        if not m:
+        if not m or m.group(1).lower() != channel.lower():
             continue
         msg_id = int(m.group(2))
         text_el = div.select_one(".tgme_widget_message_text")
@@ -94,9 +94,9 @@ def crawl_channel(session: requests.Session, channel: str, db,
         soup = BeautifulSoup(html, "html.parser")
         ids = []
         for div in soup.select("div.tgme_widget_message"):
-            match = re.fullmatch(r"[^/]+/(\d+)", div.get("data-post", ""))
-            if match:
-                ids.append(int(match.group(1)))
+            match = re.fullmatch(r"([^/]+)/(\d+)", div.get("data-post", ""))
+            if match and match.group(1).lower() == channel.lower():
+                ids.append(int(match.group(2)))
         msgs = parse_channel_page(html, channel)
         if not ids:
             break
@@ -104,8 +104,8 @@ def crawl_channel(session: requests.Session, channel: str, db,
         if before and oldest_in_page >= before:
             break
         for msg in msgs:
-            if known_max and msg.message_id in range(known_min, known_max + 1):
-                continue
+            # Sparse historic IDs do not prove a post was indexed. Idempotent
+            # inserts fill gaps safely, including source failures from old runs.
             db.insert_message(msg.channel, msg.message_id, msg.posted_at,
                               msg.title, msg.raw_text)
             for link in msg.links:
