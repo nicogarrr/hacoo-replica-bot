@@ -12,6 +12,7 @@ import requests
 from bs4 import BeautifulSoup
 from url_policy import safe_product_url
 from trends import index_offer
+from source_name import public_source_name
 
 log = logging.getLogger(__name__)
 
@@ -65,6 +66,9 @@ def parse_channel_page(html: str, channel: str) -> list:
 
 
 def fetch_page(session: requests.Session, channel: str, before: int = 0) -> str:
+    public_source_name(channel)
+    if type(before) is not int or before < 0:
+        raise ValueError("Cursor de canal inválido.")
     url = BASE.format(channel=channel)
     if before:
         url += f"?before={before}"

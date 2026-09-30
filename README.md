@@ -250,3 +250,7 @@ Trigger de borrado FTS entrega los términos reales del título actual, no caden
 vacía. Así limpieza futura/reutilización de rowid no conserva palabras fantasma.
 El arranque reemplaza el trigger antiguo, sin ejecutar limpieza ni borrar enlaces.
 Histórico FTS que ya estuviera dañado no se repara automáticamente en esta migración.
+
+Crawl valida usernames/cursor también en el límite fetch, no solo /agregarcanal.
+CHANNELS inválido falla antes de arranque; entradas guardadas inválidas no producen
+requests construidos con query/path inyectados. No cambia canales válidos ni límite.
