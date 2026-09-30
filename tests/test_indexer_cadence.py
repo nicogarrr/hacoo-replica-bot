@@ -36,3 +36,27 @@ def test_overrun_skips_resolver_and_health_not_unlimited(monkeypatch):
         except asyncio.CancelledError:pass
     asyncio.run(run())
     assert calls==['crawl',60,'closed']
+
+def test_backlogged_resolver_reserves_liveness_turn(monkeypatch):
+    import asyncio
+    import main
+    from types import SimpleNamespace as NS
+    clock=[100.];calls=[]
+    class Session:
+        def close(self):pass
+    class DB:
+        def channels(self,*a):return []
+    monkeypatch.setattr(main,'make_session',lambda:Session())
+    monkeypatch.setattr(main.time,'monotonic',lambda:clock[0])
+    def resolve(s,d,r,budget):calls.append(('resolver',budget));clock[0]+=budget;return 1
+    def health(s,d,r,budget):calls.append(('health',budget));return (1,0)
+    monkeypatch.setattr(main,'resolve_pending',resolve)
+    monkeypatch.setattr(main,'check_pending',health)
+    async def stop(_):raise asyncio.CancelledError()
+    monkeypatch.setattr(main.asyncio,'sleep',stop)
+    cfg=NS(channels=[],max_pages_per_run=1,resolve_links=True,index_interval_min=60,resolve_rate_per_min=30)
+    async def run():
+        try:await main.indexer_loop(cfg,DB())
+        except asyncio.CancelledError:pass
+    asyncio.run(run())
+    assert calls==[('resolver',2940),('health',600)]
