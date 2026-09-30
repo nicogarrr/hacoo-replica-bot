@@ -40,6 +40,15 @@ CREATE TRIGGER IF NOT EXISTS links_ai AFTER INSERT ON links BEGIN
     SELECT new.id, (SELECT title FROM messages m
                     WHERE m.channel = new.channel AND m.message_id = new.message_id);
 END;
+CREATE TRIGGER IF NOT EXISTS messages_au AFTER UPDATE OF title ON messages
+WHEN old.title IS NOT new.title BEGIN
+    INSERT INTO links_fts(links_fts,rowid,title)
+        SELECT 'delete',id,COALESCE(old.title,'') FROM links
+        WHERE channel=new.channel AND message_id=new.message_id;
+    INSERT INTO links_fts(rowid,title)
+        SELECT id,new.title FROM links
+        WHERE channel=new.channel AND message_id=new.message_id;
+END;
 CREATE TRIGGER IF NOT EXISTS links_ad AFTER DELETE ON links BEGIN
     INSERT INTO links_fts(links_fts, rowid, title) VALUES('delete', old.id, '');
 END;
@@ -118,7 +127,12 @@ class DB:
     def insert_message(self, channel: str, message_id: int, posted_at: str,
                        title: str, raw_text: str) -> None:
         self.conn.execute(
-            "INSERT OR IGNORE INTO messages VALUES (?,?,?,?,?)",
+            """INSERT INTO messages VALUES (?,?,?,?,?)
+               ON CONFLICT(channel,message_id) DO UPDATE SET
+                 posted_at=excluded.posted_at,title=excluded.title,raw_text=excluded.raw_text
+               WHERE messages.posted_at IS NOT excluded.posted_at
+                  OR messages.title IS NOT excluded.title
+                  OR messages.raw_text IS NOT excluded.raw_text""",
             (channel, message_id, posted_at, title, raw_text),
         )
 

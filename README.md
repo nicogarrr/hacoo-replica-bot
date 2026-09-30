@@ -229,3 +229,11 @@ dentro del dedupe final: el primer unknown no puede ocultar un botón probado.
 Una cola resolver permanente reserva para liveness un tercio del presupuesto
 restante, hasta 600s. Evita dejar siempre sin chequeo de muerte al histórico.
 No añade tiempo al ciclo; overrun sigue saltando trabajo sin presupuesto.
+
+### Posts editados
+
+Al volver a ver un post conocido, se actualizan título/texto/fecha si cambiaron.
+Un trigger cambia sus términos FTS en todos sus enlaces sin duplicarlos: una
+corrección Jordan 1 -> Dunk ya no devuelve el título viejo en búsquedas. No
+borra automáticamente enlaces históricos que desaparezcan del texto: no es
+prueba de muerte y se mantienen sometidos al probe de vida/existencia.
