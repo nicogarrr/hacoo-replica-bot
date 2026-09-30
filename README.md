@@ -118,3 +118,27 @@ No hay garantía absoluta: la SPA puede responder 200 para una ficha eliminada y
 la ruta puede caducar después del check. Marketplace continúa offline; tendencias
 marketplace omiten enlace clicable con aviso hasta tener comprobación soportada.
 No se usa navegador, pagos, catálogo privado ni API inventada para la recuperación.
+
+### Existencia real: probe SSR de producto (web ES)
+
+Un HTTP 200 NO habilita ya el botón por sí solo. Tras comprobar la ruta, el
+checker consulta la ficha pública oficial `shop.hacoo.pl/es-ES/detail/<ID>`:
+requiere `__F_STATE__.detail.itemDetail` con ID coincidente, `status=1` y título.
+Solo entonces muestra enlace, con texto "Ficha presente en la web ES al
+comprobar; no verifica stock/talla". Nunca cambia el ID pedido por otra ficha.
+
+`itemDetail=null` + `isAbnormalItem=true` + aviso visible específico + ausencia
+de error declara "No disponible en la web ES", sin botón. No marca permanentemente
+muerto un shortlink por ese estado: región/restricciones pueden cambiar. Genéricos,
+errores, HTML sin estado, IDs distintos y presupuesto agotado son desconocidos,
+sin botón. Caché de ficha 120s, compartida por ID y dentro del presupuesto existente.
+Respuesta SSR acotada a 2 MB. Probe no se usa como URL afiliada o sustituto inventado.
+
+Verificación real 2026-09-30: búsqueda oficial de shoes enlaza 40302592/39928200,
+ambos SSR presentes. 40777036 declara no disponible. Fixtures mínimos derivados
+con fuentes en tests/fixtures/product-state/SOURCES.md. No se ha probado todavía
+un producto que el dueño etiquete inequívocamente como borrado global. La lógica
+prueba disponibilidad web ES, no eliminación global ni disponibilidad en la app.
+La mayoría de rutas www/hacoo.app son home genérico: se prueba la ficha shop aparte,
+y si ahí no existe señal válida, se suprime botón. Puede reducir mucho resultados.
+No requiere render JS ni acceso al panel afiliado; no cambia allowlist ni flags.
