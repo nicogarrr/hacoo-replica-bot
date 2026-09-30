@@ -1,6 +1,7 @@
 """Entrada: bot de Telegram (polling) + rastreador programado."""
 import asyncio
 import logging
+import time
 from contextlib import suppress
 from worker import drain_worker
 
@@ -21,10 +22,23 @@ logging.basicConfig(
 log = logging.getLogger("replica-bot")
 
 
+def remaining_cycle_budget(started, period_s, now=None):
+    now = time.monotonic() if now is None else now
+    return max(0, period_s - (now-started) - 60)
+
+
+def cycle_sleep(started, period_s, now=None):
+    now = time.monotonic() if now is None else now
+    # Do not busy-loop or increase site load if a crawl exceeds the interval.
+    return max(60, period_s - (now-started))
+
+
 async def indexer_loop(cfg: Config, db: DB) -> None:
     session = make_session()
     try:
         while True:
+            cycle_started = time.monotonic()
+            period_s = cfg.index_interval_min * 60
             total = 0
             # New owner-approved sources appear on the next cycle, no restart.
             for channel in db.channels(cfg.channels):
@@ -40,22 +54,27 @@ async def indexer_loop(cfg: Config, db: DB) -> None:
             if cfg.resolve_links:
                 try:
                     # resuelve en hueco entre rastreos, dejando 60s de margen
-                    budget_s = max(60.0, cfg.index_interval_min * 60 - 60)
-                    done = await drain_worker(
-                        resolve_pending, session, db,
-                        cfg.resolve_rate_per_min, budget_s)
+                    budget_s = remaining_cycle_budget(cycle_started, period_s)
+                    done = 0
+                    if budget_s > 0:
+                        done = await drain_worker(
+                            resolve_pending, session, db,
+                            cfg.resolve_rate_per_min, budget_s)
                     if done:
                         log.info("resolver: %s enlaces procesados", done)
                     # liveness con presupuesto propio: ~300/ciclo, no atraganta
-                    checked, dead = await drain_worker(
-                        check_pending, session, db,
-                        cfg.resolve_rate_per_min, 600)
+                    health_budget = min(600, remaining_cycle_budget(cycle_started, period_s))
+                    checked = dead = 0
+                    if health_budget > 0:
+                        checked, dead = await drain_worker(
+                            check_pending, session, db,
+                            cfg.resolve_rate_per_min, health_budget)
                     if checked:
                         log.info("liveness: %s chequeados, %s muertos",
                                  checked, dead)
                 except Exception:
                     log.exception("resolver fallo")
-            await asyncio.sleep(cfg.index_interval_min * 60)
+            await asyncio.sleep(cycle_sleep(cycle_started, period_s))
     finally:
         session.close()
 
