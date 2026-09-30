@@ -23,7 +23,8 @@ async def indexer_loop(cfg: Config, db: DB) -> None:
     session = make_session()
     while True:
         total = 0
-        for channel in cfg.channels:
+        # New owner-approved sources appear on the next cycle, no restart.
+        for channel in db.channels(cfg.channels):
             try:
                 # en hilo: crawl_channel es sincrono y si no congela el
                 # event loop (bot sordo durante todo el rastreo)
@@ -72,6 +73,7 @@ async def main() -> None:
     app.add_handler(CommandHandler("help", handlers["ayuda"]))
     app.add_handler(CommandHandler("stats", handlers["stats"]))
     app.add_handler(CommandHandler("canales", handlers["canales"]))
+    app.add_handler(CommandHandler("agregarcanal", handlers["agregarcanal"]))
     app.add_handler(CommandHandler("buscar", handlers["buscar"]))
     app.add_handler(MessageHandler(filters.PHOTO & filters.ChatType.PRIVATE, handlers["foto"]))
     app.add_handler(MessageHandler(filters.TEXT & filters.ChatType.PRIVATE & ~filters.COMMAND, handlers["texto"]))

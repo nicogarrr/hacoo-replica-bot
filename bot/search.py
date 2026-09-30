@@ -143,6 +143,9 @@ def _add(rows, results, seen, counted_rows, limit, category, lvl,
                     "id": r["id"], "link": r["link"],
                     "orig_url": r["orig_url"], "posted_at": posted,
                     "product_id": r["product_id"],
+                    "channel": r["channel"],
+                    "message_id": r["message_id"],
+                    "checked_at": r["checked_at"],
                 })
             continue
         entry = {
@@ -152,6 +155,8 @@ def _add(rows, results, seen, counted_rows, limit, category, lvl,
             "orig_url": r["orig_url"],
             "product_id": r["product_id"],
             "channel": r["channel"],
+            "message_id": r["message_id"],
+            "checked_at": r["checked_at"],
             "posted_at": posted,
             "sources": 1,
             "lvl": lvl,
