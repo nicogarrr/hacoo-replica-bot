@@ -142,3 +142,17 @@ prueba disponibilidad web ES, no eliminación global ni disponibilidad en la app
 La mayoría de rutas www/hacoo.app son home genérico: se prueba la ficha shop aparte,
 y si ahí no existe señal válida, se suprime botón. Puede reducir mucho resultados.
 No requiere render JS ni acceso al panel afiliado; no cambia allowlist ni flags.
+
+### Alias reales y muestras de producción
+
+Parser compartido de producto: `/p/ID`, `/detail/ID`, `/product/ID` y prefijos
+`/ES/` o `/es-ES/`. Rechaza sufijos basura, IDs Unicode y paths arbitrarios.
+El probe solo acepta SSR de la ruta `shop.hacoo.pl/es-ES/detail/ID`, no una
+redirección a otra región. Errores desconocidos tienen caché de 15s (positivos y
+no disponible 120s), para no bloquear una recuperación transitoria dos minutos.
+
+Cinco muestras de producción contrastadas 2026-10-01: 14642740, 14642718,
+14638268, 39459713, 39512968. Todas muestran no disponible en web ES. Las primeras
+tres eran resolved/not-dead en BD: eso NO demuestra producto vivo. Las últimas
+dos tenían dead_at: eso NO demuestra borrado global. Fixtures documentan etiquetas
+sin confundir estado de transporte con existencia de producto.
