@@ -222,3 +222,6 @@ diferentes pueden compartir franja y esperar: fail-closed, no mayor presión HTT
 Dos `__F_STATE__` o estado abnormal=true con detalle activo se tratan como unknown,
 no botón. `status` exige entero 1, no boolean true. Primera búsqueda tras un
 reinicio no queda bloqueada por cooldown cuando monotonic todavía es menor de 5s.
+
+Una fuente confirmada posterior sustituye el aviso incierto del mismo producto
+dentro del dedupe final: el primer unknown no puede ocultar un botón probado.

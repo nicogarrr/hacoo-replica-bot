@@ -4,7 +4,7 @@ from link_health import choose_link
 from url_policy import safe_product_url
 
 def verify_results(session,db,rows,checker,product_links,budget,deadline,limit=5):
-    alive, uncertain, seen = [], [], set()
+    alive, uncertain, seen = [], [], {}
     for row in rows:
         if not safe_product_url(row['orig_url']):
             continue
@@ -13,9 +13,13 @@ def verify_results(session,db,rows,checker,product_links,budget,deadline,limit=5
         if not checked:
             continue
         key=checked.get('product_id') or checked['orig_url']
-        if key in seen:
-            continue
-        seen.add(key)
+        previous = seen.get(key)
+        if previous is not None:
+            if previous['link'] or not checked['link']:
+                continue
+            # A later confirmed route supersedes an earlier uncertainty.
+            uncertain.remove(previous)
+        seen[key] = checked
         (alive if checked['link'] else uncertain).append(checked)
         if len(alive)>=limit:
             break
