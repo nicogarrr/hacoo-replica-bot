@@ -54,7 +54,9 @@ async def indexer_loop(cfg: Config, db: DB) -> None:
             if cfg.resolve_links:
                 try:
                     # resuelve en hueco entre rastreos, dejando 60s de margen
-                    budget_s = remaining_cycle_budget(cycle_started, period_s)
+                    remaining = remaining_cycle_budget(cycle_started, period_s)
+                    health_reserve = min(600, remaining / 3)
+                    budget_s = max(0, remaining - health_reserve)
                     done = 0
                     if budget_s > 0:
                         done = await drain_worker(

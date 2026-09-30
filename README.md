@@ -225,3 +225,7 @@ reinicio no queda bloqueada por cooldown cuando monotonic todavía es menor de 5
 
 Una fuente confirmada posterior sustituye el aviso incierto del mismo producto
 dentro del dedupe final: el primer unknown no puede ocultar un botón probado.
+
+Una cola resolver permanente reserva para liveness un tercio del presupuesto
+restante, hasta 600s. Evita dejar siempre sin chequeo de muerte al histórico.
+No añade tiempo al ciclo; overrun sigue saltando trabajo sin presupuesto.
