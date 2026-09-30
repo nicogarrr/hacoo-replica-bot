@@ -6,6 +6,7 @@ paginados hacia atras con ?before=<message_id>. Solo lectura, ritmo suave.
 import logging
 import re
 import time
+from urllib.parse import urljoin, urlsplit, parse_qs
 from dataclasses import dataclass, field
 
 import requests
@@ -72,9 +73,29 @@ def fetch_page(session: requests.Session, channel: str, before: int = 0) -> str:
     url = BASE.format(channel=channel)
     if before:
         url += f"?before={before}"
-    r = session.get(url, timeout=20)
-    r.raise_for_status()
-    return r.text
+    for _ in range(4):
+        parsed = urlsplit(url)
+        if (parsed.scheme != "https" or parsed.hostname not in {"t.me", "www.t.me"}
+                or parsed.username or parsed.password or parsed.port not in (None,443)
+                or parsed.path.rstrip("/") != f"/s/{channel}"
+                or parsed.fragment):
+            raise ValueError("Redirección de fuente fuera de la vista pública autorizada.")
+        params = parse_qs(parsed.query, keep_blank_values=True)
+        expected = {"before": [str(before)]} if before else {}
+        if params != expected:
+            raise ValueError("Redirección de fuente cambió el cursor.")
+        r = session.get(url, timeout=20, allow_redirects=False)
+        try:
+            if r.status_code in {301,302,303,307,308} and r.headers.get("Location"):
+                url = urljoin(url,r.headers["Location"])
+                continue
+            r.raise_for_status()
+            if r.status_code != 200:
+                raise ValueError("La vista pública no devolvió una página completa.")
+            return r.text
+        finally:
+            r.close()
+    raise ValueError("Demasiadas redirecciones de fuente.")
 
 
 def crawl_channel(session: requests.Session, channel: str, db,

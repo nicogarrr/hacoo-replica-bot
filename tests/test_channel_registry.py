@@ -30,10 +30,13 @@ def test_reject_nonpublic_or_hostile_source(raw):
 def test_preview_and_persistent_registration(tmp_path):
     html = open(os.path.join(os.path.dirname(__file__), "fixture_channel.html")).read()
     class Resp:
+        status_code = 200
+        headers = {}
+        def close(self): pass
         text = html
         def raise_for_status(self): pass
     class Session:
-        def get(self, url, timeout):
+        def get(self, url, timeout, allow_redirects=False):
             assert url == "https://t.me/s/hacoolinks"
             return Resp()
     preview = preview_source(Session(), "hacoolinks")
@@ -50,6 +53,9 @@ def test_preview_and_persistent_registration(tmp_path):
 
 def test_preview_rejects_external_link_even_with_one_hacoo_candidate():
     class Resp:
+        status_code = 200
+        headers = {}
+        def close(self): pass
         text = ('<div class="tgme_widget_message" data-post="sample/1">'
                 '<div class="tgme_widget_message_text">Nike Dunk '
                 '<a href="https://c.onlyaff.app/a">Hacoo</a> '
@@ -57,6 +63,6 @@ def test_preview_rejects_external_link_even_with_one_hacoo_candidate():
                 '</div></div>')
         def raise_for_status(self): pass
     class Session:
-        def get(self, url, timeout): return Resp()
+        def get(self, url, timeout, allow_redirects=False): return Resp()
     with pytest.raises(ValueError, match="ajenos"):
         preview_source(Session(), "sample")
