@@ -245,3 +245,8 @@ reducción <=95% se omite del ranking/publicación, no anuncia descuento negativ
 No se atribuye un precio si el post contiene un enlace adicional no reconocido:
 podría ser otro producto que el parser aún no entiende. Varias URLs resueltas al
 mismo producto dentro de un mismo post cuentan como un post, no como repetición.
+
+Trigger de borrado FTS entrega los términos reales del título actual, no cadena
+vacía. Así limpieza futura/reutilización de rowid no conserva palabras fantasma.
+El arranque reemplaza el trigger antiguo, sin ejecutar limpieza ni borrar enlaces.
+Histórico FTS que ya estuviera dañado no se repara automáticamente en esta migración.
