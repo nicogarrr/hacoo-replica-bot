@@ -14,6 +14,9 @@ def classify_product_html(html, expected_id):
     soup=BeautifulSoup(html,'html.parser')
     script=soup.select_one('script#__F_STATE__')
     try:
+        scripts=soup.select('script#__F_STATE__')
+        if len(scripts) != 1:
+            return 'unknown','estado de producto ausente o ambiguo'
         state=json.loads(script.string or script.get_text()) if script else {}
         detail=state.get('detail',{})
         if not isinstance(detail,dict) or str(detail.get('itemId')) != str(expected_id):
@@ -22,7 +25,9 @@ def classify_product_html(html, expected_id):
             return 'unknown','la web declaró un error, no prueba de borrado'
         item=detail.get('itemDetail')
         if isinstance(item,dict) and str(item.get('id'))==str(expected_id):
-            if item.get('status')==1 and isinstance(item.get('title'),str) and item['title'].strip():
+            if (type(item.get('status')) is int and item.get('status')==1
+                    and detail.get('isAbnormalItem') is not True
+                    and isinstance(item.get('title'),str) and item['title'].strip()):
                 return 'present','ficha de producto presente en web ES; stock no verificado'
             return 'unknown','estado de venta no confirmado'
         text=soup.get_text(' ',strip=True).lower()

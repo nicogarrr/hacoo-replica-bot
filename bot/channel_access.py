@@ -29,8 +29,8 @@ class SubscriberGate:
 
     def throttle(self, user_id: int) -> bool:
         now = time.monotonic()
-        last = self._last.get(user_id, 0)
-        if now - last < self.cooldown_seconds:
+        last = self._last.get(user_id)
+        if last is not None and now - last < self.cooldown_seconds:
             return True
         self._last[user_id] = now
         # bounded memory even if the public bot gets widely shared
