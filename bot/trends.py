@@ -85,11 +85,17 @@ def trends(db, namespace='hacoo', days=7, limit=10, now=None):
        WHERE namespace=? AND posted_ts BETWEEN ? AND ?
        ORDER BY posted_ts DESC,message_id DESC""",
        (namespace, now-days*86400, now)).fetchall()
+    related = db.conn.execute("""SELECT l.channel,l.message_id,l.url,
+          l.product_id,l.resolved_url,l.dead_at FROM links l
+          JOIN community_offers o ON o.channel=l.channel
+            AND o.message_id=l.message_id AND o.original_url=l.url
+          WHERE o.namespace=? AND o.posted_ts BETWEEN ? AND ?""",
+          (namespace,now-days*86400,now)).fetchall()
     resolved = {(r["channel"],r["message_id"],r["url"]): r["product_id"]
-        for r in db.conn.execute("SELECT * FROM links WHERE product_id IS NOT NULL AND resolved_url IS NOT NULL AND dead_at IS NULL")
-        if is_hacoo_url(r["resolved_url"])}
-    dead = {(r["channel"],r["message_id"],r["url"]) for r in db.conn.execute(
-        "SELECT channel,message_id,url FROM links WHERE dead_at IS NOT NULL")}
+        for r in related if r["product_id"] and is_hacoo_url(r["resolved_url"])
+        and r["dead_at"] is None}
+    dead = {(r["channel"],r["message_id"],r["url"]) for r in related
+            if r["dead_at"] is not None}
     grouped = {}
     for row in rows:
         row = dict(row)

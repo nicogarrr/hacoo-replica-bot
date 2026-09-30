@@ -101,7 +101,7 @@ def test_h13_permanent_404_not_retry(monkeypatch):
 
 @pytest.mark.parametrize('url, platform, pid', [
     ('https://item.taobao.com/item.htm?id=123&spm=x', 'taobao', '123'),
-    ('https://detail.tmall.com/item.htm?id=123', 'taobao', '123'),
+    ('https://detail.tmall.com/item.htm?id=123', 'tmall', '123'),
     ('https://weidian.com/item.html?itemID=3053526244&vc_cps_track=x', 'weidian', '3053526244'),
     ('https://detail.1688.com/offer/1025411009174.html', '1688', '1025411009174'),
     ('https://www.cssbuy.com/item-1688-1025411009174.html', '1688', '1025411009174'),

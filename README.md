@@ -71,7 +71,7 @@ procede de `resolver.py`. Sin fichero válido no hay reescritura de enlaces.
 
 ### Tendencias privadas y borradores de alertas
 
-`/tendencias hacoo|taobao|weidian|1688` (solo dueño, chat privado) muestra
+`/tendencias hacoo|taobao|tmall|weidian|1688` (solo dueño, chat privado) muestra
 hasta cinco borradores de los últimos siete días. No publica en ningún canal.
 Observa repetición entre fuentes y frescura, no ventas ni popularidad real.
 
@@ -88,3 +88,13 @@ Es una afirmación del post, no precio actual verificado. No infiere porcentajes
 Se llena con páginas nuevas tras desplegar. Sin backfill automático ni scrape
 de marketplaces. `/agregarcanal` sigue exigiendo enlaces Hacoo/onlyaff: el parser
 marketplace recoge links coexistentes en fuentes ya aprobadas. Cero coste añadido.
+
+### Operación segura
+
+Arranque normal y `INDEXER_ONLY` validan límites antes de abrir la BD:
+intervalo 1..1440 minutos, páginas 1..400, resolver 1..120 enlaces/minuto.
+El backfill también valida sin exigir token Telegram. Se crea el directorio
+de DB_PATH cuando falta. Ciclos de crawl cuentan inserciones reales, no
+repeticiones. Tmall conserva namespace y URL Tmall, no se transforma en Taobao.
+Consultas de tendencias limitan estado de resolución/muerte a su ventana de
+observación, no cargan todo el histórico de enlaces.

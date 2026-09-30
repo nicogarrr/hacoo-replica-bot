@@ -111,8 +111,8 @@ def crawl_channel(session: requests.Session, channel: str, db,
             for link in msg.links:
                 index_offer(db, msg, link)
                 if safe_product_url(link):
-                    db.insert_link(msg.channel, msg.message_id, link)
-                    new_count += 1
+                    if db.insert_link(msg.channel, msg.message_id, link):
+                        new_count += 1
         db.commit()
         oldest_in_page = min(ids)
         if not backfill and oldest_in_page <= known_max:

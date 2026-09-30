@@ -17,6 +17,7 @@ from config import Config  # noqa: E402
 
 def main() -> None:
     cfg = Config()
+    cfg.validate(require_token=False)
     db = DB(cfg.db_path)
     session = make_session()
     for ch in db.channels(cfg.channels):

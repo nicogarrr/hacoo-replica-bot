@@ -1,5 +1,6 @@
 """SQLite + FTS5: indice local de enlaces de la comunidad."""
 import sqlite3
+from pathlib import Path
 import time
 from search import query_tokens
 from trends import init_trends
@@ -48,6 +49,8 @@ END;
 class DB:
     def __init__(self, path: str) -> None:
         self.path = path
+        if path != ":memory:":
+            Path(path).parent.mkdir(parents=True, exist_ok=True)
         self.conn = sqlite3.connect(path, timeout=30, isolation_level=None,
                                 check_same_thread=False)
         self.conn.row_factory = sqlite3.Row
@@ -118,7 +121,7 @@ class DB:
             "INSERT OR IGNORE INTO links (channel, message_id, url) VALUES (?,?,?)",
             (channel, message_id, url),
         )
-        return cur.lastrowid or 0
+        return cur.lastrowid if cur.rowcount else 0
 
     def commit(self) -> None:
         self.conn.commit()
