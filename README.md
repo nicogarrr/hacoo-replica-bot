@@ -266,3 +266,7 @@ no se sigue silenciosamente. Ninguna cookie/sesión privada se necesita.
 Caché de ruta positiva no renueva prueba de producto: al expirar el SSR del ID,
 también se vuelve a comprobar una ruta que aún tenía TTL propio restante. Evita
 que otra URL del mismo producto prolongue de hecho existencia hasta casi 240s.
+
+Límite de mensaje cuenta unidades UTF-16 (emojis no BMP cuentan dos), no solo
+len de Python. Se conserva markup intacto y límite conservador también para
+fuentes con emojis, evitando fallos de Telegram con bloques aparentemente cortos.
