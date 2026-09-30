@@ -56,10 +56,14 @@ class DB:
         self.conn.execute("PRAGMA journal_mode=WAL")
         self.conn.execute("PRAGMA busy_timeout=30000")
         self.conn.executescript(SCHEMA)
-        for col in ("dead_at", "checked_at"):
+        for col in ("dead_at", "checked_at", "resolve_retry_at"):
             if col not in {r["name"] for r in
                            self.conn.execute("PRAGMA table_info(links)")}:
                 self.conn.execute(f"ALTER TABLE links ADD COLUMN {col} REAL")
+
+        if "resolve_attempts" not in {r["name"] for r in
+                self.conn.execute("PRAGMA table_info(links)")}:
+            self.conn.execute("ALTER TABLE links ADD COLUMN resolve_attempts INTEGER NOT NULL DEFAULT 0")
 
     def channels(self, defaults: list) -> list:
         # Existing .env entries are never removed by this feature.
@@ -117,7 +121,7 @@ class DB:
     def commit(self) -> None:
         self.conn.commit()
 
-    def links_to_check(self, limit: int) -> list:
+    def links_to_check(self, limit: int, started_at=None) -> list:
         """Chequeo de vida: sin chequear primero, y de esos los de posts
         mas antiguos (los enlaces de Hacoo mueren en ~1 mes)."""
         return self.conn.execute(
@@ -125,11 +129,11 @@ class DB:
             SELECT l.id, l.url FROM links l
             JOIN messages m ON m.channel = l.channel
                            AND m.message_id = l.message_id
-            WHERE l.dead_at IS NULL
-            ORDER BY l.checked_at IS NOT NULL, m.message_id
+            WHERE l.dead_at IS NULL AND (l.checked_at IS NULL OR l.checked_at < ?)
+            ORDER BY l.checked_at IS NOT NULL, l.checked_at, m.posted_at, l.id
             LIMIT ?
             """,
-            (limit,),
+            (started_at if started_at is not None else time.time(), limit),
         ).fetchall()
 
     def mark_checked(self, link_id: int, dead: bool) -> None:
@@ -142,15 +146,16 @@ class DB:
                 "UPDATE links SET checked_at = ?, dead_at = NULL WHERE id = ?",
                 (time.time(), link_id))
 
-    def unresolved_links(self, limit: int) -> list:
+    def unresolved_links(self, limit: int, eligible_at=None) -> list:
         return self.conn.execute(
-            "SELECT id, url FROM links WHERE resolved_at IS NULL ORDER BY id LIMIT ?",
-            (limit,),
+            "SELECT id, url FROM links WHERE resolved_at IS NULL AND dead_at IS NULL "
+            "AND (resolve_retry_at IS NULL OR resolve_retry_at <= ?) ORDER BY id LIMIT ?",
+            (time.time() if eligible_at is None else eligible_at, limit),
         ).fetchall()
 
     def mark_resolved(self, link_id: int, resolved_url: str, product_id: str) -> None:
         self.conn.execute(
-            "UPDATE links SET resolved_url = ?, product_id = ?, resolved_at = ? WHERE id = ?",
+            "UPDATE links SET resolved_url = ?, product_id = ?, resolved_at = ?, resolve_retry_at = NULL WHERE id = ?",
             (resolved_url, product_id, time.time(), link_id),
         )
 
@@ -158,6 +163,13 @@ class DB:
         self.conn.execute(
             "UPDATE links SET resolved_at = ? WHERE id = ?", (time.time(), link_id)
         )
+
+    def mark_retry(self, link_id):
+        # Atomic counter update; persist backoff across restarts.
+        self.conn.execute(
+            """UPDATE links SET resolve_attempts=resolve_attempts+1,
+               resolve_retry_at=? + min(86400,60 * (1 << min(resolve_attempts,10)))
+               WHERE id=? AND resolved_at IS NULL""", (time.time(), link_id))
 
     def search_fts(self, query: str, limit: int = 8, mode: str = "and") -> list:
         terms = query_tokens(query)

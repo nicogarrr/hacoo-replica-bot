@@ -90,8 +90,17 @@ def crawl_channel(session: requests.Session, channel: str, db,
         except Exception as e:
             log.warning("canal %s pagina %s: %s", channel, page, e)
             break
+        soup = BeautifulSoup(html, "html.parser")
+        ids = []
+        for div in soup.select("div.tgme_widget_message"):
+            match = re.fullmatch(r"[^/]+/(\d+)", div.get("data-post", ""))
+            if match:
+                ids.append(int(match.group(1)))
         msgs = parse_channel_page(html, channel)
-        if not msgs:
+        if not ids:
+            break
+        oldest_in_page = min(ids)
+        if before and oldest_in_page >= before:
             break
         for msg in msgs:
             if known_max and msg.message_id in range(known_min, known_max + 1):
@@ -103,13 +112,12 @@ def crawl_channel(session: requests.Session, channel: str, db,
                     db.insert_link(msg.channel, msg.message_id, link)
                     new_count += 1
         db.commit()
-        ids = [m.message_id for m in msgs]
         oldest_in_page = min(ids)
         if not backfill and oldest_in_page <= known_max:
             break
         if backfill and known_min and oldest_in_page >= known_min:
             break  # la pagina no retrocedio: fin del historico disponible
-        if len(msgs) < 5:
+        if before and oldest_in_page >= before:
             break
         before = oldest_in_page
         known_min = min(known_min, oldest_in_page) if known_min else oldest_in_page
