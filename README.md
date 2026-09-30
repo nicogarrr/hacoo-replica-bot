@@ -208,3 +208,11 @@ se exige también al destino/mapping: una antigua URL resuelta a otro producto n
 se publica. Tendencias cita la fuente del reemplazo comprobado, no el post muerto.
 Al cambiar fuente, omite el descuento/precio del post anterior para no atribuírselo
 al nuevo enlace. No supone que precios iguales o títulos iguales sean el producto.
+
+### Consultas simultáneas
+
+Checker usa locks acotados por franjas para rutas y productos: dos consultas del
+mismo ID esperan la comprobación activa y reutilizan caché en vez de duplicar
+GETs. La espera usa presupuesto restante; si acaba, devuelve unknown sin botón.
+32 locks fijos por tipo, no una estructura ilimitada por usuario/URL. Productos
+diferentes pueden compartir franja y esperar: fail-closed, no mayor presión HTTP.
