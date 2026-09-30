@@ -262,3 +262,7 @@ HTTPS t.me/www.t.me con mismo `/s/username` y cursor; destinos externos, login,
 otro canal o cursor distinto se rechazan antes de GET. Respuestas se cierran aun
 al fallar. Una redirección legítima fuera de ese formato requiere revisión,
 no se sigue silenciosamente. Ninguna cookie/sesión privada se necesita.
+
+Caché de ruta positiva no renueva prueba de producto: al expirar el SSR del ID,
+también se vuelve a comprobar una ruta que aún tenía TTL propio restante. Evita
+que otra URL del mismo producto prolongue de hecho existencia hasta casi 240s.

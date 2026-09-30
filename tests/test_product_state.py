@@ -135,3 +135,16 @@ def test_unresolved_original_cannot_emit_old_destination_of_different_product():
     c=choose_link(s,db,r,LinkHealth())
     assert c['product_id']=='40302592'
     assert c['link']=='https://hacoo.app/detail/40302592'
+
+def test_second_route_cache_cannot_extend_product_presence_ttl(monkeypatch):
+    clock=[100.];monkeypatch.setattr('link_health.time.monotonic',lambda:clock[0])
+    h=LinkHealth(ttl=120)
+    html=(FIX/'40302592.html').read_text()
+    s=Session([Resp(),Resp(html),Resp(),Resp(),Resp('<title>Hacoo</title>')])
+    assert h.check(s,'https://hacoo.app/detail/40302592').status=='reachable'
+    clock[0]=219
+    assert h.check(s,'https://hacoo.pl/detail/40302592').status=='reachable'
+    assert len(s.calls)==3 # older product proof reused, not renewed
+    clock[0]=221
+    assert h.check(s,'https://hacoo.pl/detail/40302592').status=='unknown'
+    assert len(s.calls)==5
