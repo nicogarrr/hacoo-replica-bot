@@ -49,8 +49,11 @@ WHEN old.title IS NOT new.title BEGIN
         SELECT id,new.title FROM links
         WHERE channel=new.channel AND message_id=new.message_id;
 END;
-CREATE TRIGGER IF NOT EXISTS links_ad AFTER DELETE ON links BEGIN
-    INSERT INTO links_fts(links_fts, rowid, title) VALUES('delete', old.id, '');
+DROP TRIGGER IF EXISTS links_ad;
+CREATE TRIGGER links_ad AFTER DELETE ON links BEGIN
+    INSERT INTO links_fts(links_fts, rowid, title)
+      VALUES('delete',old.id,COALESCE((SELECT title FROM messages
+        WHERE channel=old.channel AND message_id=old.message_id),''));
 END;
 """
 
