@@ -200,3 +200,11 @@ pasar max_seconds=0 (que significa ilimitado). Overrun espera al menos 60s antes
 del siguiente crawl para evitar bucle. Intervalos extremadamente cortos o crawl
 muy largo pueden dejar sin presupuesto al resolver: aumentar intervalo/reducir
 páginas si hace falta, no prometemos que todas las colas terminen cada ciclo.
+
+### Citas y destinos tras sustitución
+
+Si un shortlink originalmente sin ID revela una ficha real, ese ID descubierto
+se exige también al destino/mapping: una antigua URL resuelta a otro producto no
+se publica. Tendencias cita la fuente del reemplazo comprobado, no el post muerto.
+Al cambiar fuente, omite el descuento/precio del post anterior para no atribuírselo
+al nuevo enlace. No supone que precios iguales o títulos iguales sean el producto.

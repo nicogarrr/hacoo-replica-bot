@@ -161,7 +161,12 @@ def make_handlers(cfg, db):
                                                   candidate, _link_health, None, budget, deadline)
                 if not checked:
                     continue
-                row = dict(row, original_url=checked["link"], health=checked["health"])
+                # A substituted route must cite its actual source, not the dead post.
+                changed_source = (checked['channel'],checked['message_id']) != (row['channel'],row['message_id'])
+                row = dict(row, original_url=checked["link"], health=checked["health"],
+                           channel=checked['channel'],message_id=checked['message_id'])
+                if changed_source:
+                    row['price_cents'] = row['previous_cents'] = row['discount_pct'] = None
             else:
                 # Marketplace is offline-only: do not imply link health.
                 row = dict(row, original_url="", health="Puede estar caído: marketplace sin comprobación en vivo.")

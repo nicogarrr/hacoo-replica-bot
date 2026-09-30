@@ -139,7 +139,7 @@ def choose_link(session, db, row, checker, output_url=None, budget=None, deadlin
         if health.status in {'unknown','unavailable'}:
             unknown = unknown or (candidate,health)
             continue
-        expected = str(row.get('product_id') or '')
+        expected = str(row.get('product_id') or hacoo_product_id(health.url) or '')
         if expected and hacoo_product_id(health.url) != expected:
             unknown = unknown or (candidate,Health('unknown',url,'destino distinto del producto pedido'))
             continue
@@ -161,6 +161,7 @@ def choose_link(session, db, row, checker, output_url=None, budget=None, deadlin
                     target = target # retain verified mapping and attribution parameters
                 else:
                     target = health.url
+        chosen['product_id'] = expected or None
         chosen['link'] = target
         chosen['health'] = 'Ficha presente en la web ES al comprobar; no verifica stock/talla.'
         return chosen

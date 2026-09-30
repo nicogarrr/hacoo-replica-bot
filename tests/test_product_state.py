@@ -123,3 +123,15 @@ def test_redirect_to_different_real_product_not_substitute():
     s=Session([Resp(status=302,location='https://hacoo.app/detail/40302592'),Resp(),Resp((FIX/'40302592.html').read_text())])
     c=choose_link(s,db,r,LinkHealth())
     assert c['link']==''
+
+def test_unresolved_original_cannot_emit_old_destination_of_different_product():
+    db=DB(':memory:');url='https://onlyaff.app/new'
+    db.insert_message('sourcea',1,'','shoe','');db.insert_link('sourcea',1,url)
+    # Legacy resolved destination without trustworthy product_id.
+    db.mark_resolved(1,'https://hacoo.app/detail/39928200',None)
+    r=dict(db.fuzzy_candidates()[0])
+    s=Session([Resp(status=302,location='https://hacoo.app/detail/40302592'),Resp(),
+        Resp((FIX/'40302592.html').read_text()),Resp(),Resp((FIX/'39928200.html').read_text())])
+    c=choose_link(s,db,r,LinkHealth())
+    assert c['product_id']=='40302592'
+    assert c['link']=='https://hacoo.app/detail/40302592'
