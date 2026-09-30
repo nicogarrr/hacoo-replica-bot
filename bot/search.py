@@ -12,6 +12,8 @@ Reglas:
 """
 import re
 import unicodedata
+from urllib.parse import urldefrag, urlsplit, urlunsplit
+from rapidfuzz import fuzz
 
 MIN_TOKENS = 2
 
@@ -97,15 +99,25 @@ def _tokens(text: str) -> list:
     return [t for t in re.split(r"[^\w]+", normalize(text).lower()) if t]
 
 
+def query_tokens(text: str) -> list:
+    return [t for t in re.findall(r"\w+", normalize(text))
+            if len(t) >= 2 or t.isdecimal()]
+
+
+FOOTWEAR_HINTS = {"jordan", "dunk", "yeezy", "samba", "gazelle", "campus",
+                 "forum", "superstar", "blazer", "vomero", "pegasus",
+                 "ultraboost", "spezial"}
+
+
 def categorize(text: str) -> str:
     toks = set(_tokens(text))
-    if toks & FOOTWEAR:
+    if toks & (FOOTWEAR - FOOTWEAR_HINTS):
         return "footwear"
     if toks & APPAREL:
         return "apparel"
     if toks & ACCESSORY:
         return "accessory"
-    return ""
+    return "footwear" if toks & FOOTWEAR_HINTS else ""
 
 
 def _split_query(tokens: list) -> tuple:
@@ -130,17 +142,23 @@ def _add(rows, results, seen, counted_rows, limit, category, lvl,
         counted_rows.add(r["id"])
         if category:
             rcat = categorize(r["title"] or "")
-            if rcat and rcat != category:
+            explicit = set(_tokens(r["title"] or ""))
+            ambiguous = (explicit & (FOOTWEAR - FOOTWEAR_HINTS)
+                         and explicit & (APPAREL | ACCESSORY))
+            if ambiguous or (rcat and rcat != category):
                 continue  # guarda de categoria: calzado nunca trae ropa
-        key = r["product_id"] or r["link"]
+        u = urlsplit(urldefrag(r["link"])[0])
+        key = r["product_id"] or urlunsplit(
+            (u.scheme.lower(), u.netloc.lower(), u.path, u.query, ""))
         posted = (r["posted_at"] or "")[:10]
         if key in seen:
-            seen[key]["sources"] += 1
+            seen[key]["source_channels"].add(r["channel"])
+            seen[key]["sources"] = len(seen[key]["source_channels"])
             # el enlace mas reciente del mismo producto es el que vale:
             # los enlaces de Hacoo mueren en ~1 mes
             if posted > seen[key]["posted_at"]:
                 seen[key].update({
-                    "id": r["id"], "link": r["link"],
+                    "id": r["id"], "title": clean_title(r["title"]), "link": r["link"],
                     "orig_url": r["orig_url"], "posted_at": posted,
                     "product_id": r["product_id"],
                     "channel": r["channel"],
@@ -159,6 +177,7 @@ def _add(rows, results, seen, counted_rows, limit, category, lvl,
             "checked_at": r["checked_at"],
             "posted_at": posted,
             "sources": 1,
+            "source_channels": {r["channel"]},
             "lvl": lvl,
             "typed": r["id"] in typed_ids,
         }
@@ -183,7 +202,7 @@ def search(db, query: str, limit: int = 5) -> dict:
     los resultados son solo lo mas parecido de la marca.
     """
     q = normalize(query)
-    tokens = [t for t in q.split() if len(t) >= 2]
+    tokens = query_tokens(q)
     if not tokens:
         return {"results": [], "exact": False, "model": "", "category": ""}
     category = categorize(q)
@@ -192,8 +211,12 @@ def search(db, query: str, limit: int = 5) -> dict:
     results = []
     seen = {}
     counted_rows = set()
+    numeric_id = q.isdecimal()
+    if numeric_id:
+        _add(db.search_product_id(q, limit), results, seen, counted_rows,
+             limit, "", len(tokens))
     floor = MIN_TOKENS if len(tokens) >= MIN_TOKENS else len(tokens)
-    for k in range(len(tokens), floor - 1, -1):
+    for k in ([] if numeric_id else range(len(tokens), floor - 1, -1)):
         # los canales abrevian la marca ("Ralph Lauren", no "Polo Ralph
         # Lauren"): si la marca tiene 3+ palabras, se prueba tambien sin
         # la primera para no tirar el modelo a la basura con ella
@@ -233,12 +256,25 @@ def search(db, query: str, limit: int = 5) -> dict:
         if _add(rows, results, seen, counted_rows, limit, category, k,
                 typed_ids=tids):
             break
-    if len(results) < limit and len(tokens) > 1:
+    if not numeric_id and len(results) < limit and len(tokens) > 1:
         rows = db.search_fts(" ".join(tokens), limit, mode="or") \
             or db.search_like(" ".join(tokens), limit, mode="or")
         # titulos con tipo de producto claro primero: menos morralla
         rows = sorted(rows, key=lambda r: 0 if categorize(r["title"] or "") else 1)
         _add(rows, results, seen, counted_rows, limit, category, 1)
+    # Bounded typo fallback. Numeric model tokens are never fuzzy-matched.
+    if not numeric_id and len(results) < limit:
+        candidates = []
+        for row in db.fuzzy_candidates(500):
+            words = _tokens(row["title"] or "")
+            if all(any(t.lower() == w or (len(t) >= 4 and not t.isdecimal()
+                       and fuzz.ratio(t.lower(), w) >= 85) for w in words)
+                   for t in tokens):
+                candidates.append(row)
+        candidates.sort(key=lambda r: fuzz.WRatio(
+            " ".join(_tokens(q)), " ".join(_tokens(r["title"] or ""))),
+            reverse=True)
+        _add(candidates, results, seen, counted_rows, limit, category, 0)
     # frescura: dentro de cada nivel, los enlaces mas nuevos primero;
     # y se ocultan los de >45 dias salvo que no quede nada mas
     by_lvl = sorted(results, key=lambda e: -e["lvl"])
@@ -260,9 +296,16 @@ def search(db, query: str, limit: int = 5) -> dict:
     if model_terms:
         ml = [m.lower() for m in model_terms]
         exact = any(
-            all(m in (r["title"] or "").lower() for m in ml) for r in results)
+            all(m in _tokens(r["title"] or "") for m in ml) for r in results)
         if not results:
             exact = False
+    if numeric_id:
+        exact = bool(results)
+    elif model_terms:
+        results.sort(key=lambda r: not all(
+            m.lower() in _tokens(r["title"]) for m in model_terms))
+    for r in results:
+        r.pop("source_channels", None)
     return {
         "results": results[:limit],
         "exact": exact,

@@ -1,6 +1,11 @@
 """SQLite + FTS5: indice local de enlaces de la comunidad."""
 import sqlite3
 import time
+from search import query_tokens
+
+def fts_term(token):
+    return '"' + token.replace('"', '""') + '"*'
+
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS messages (
@@ -155,11 +160,11 @@ class DB:
         )
 
     def search_fts(self, query: str, limit: int = 8, mode: str = "and") -> list:
-        terms = [t for t in query.split() if len(t) >= 2]
+        terms = query_tokens(query)
         if not terms:
             return []
         joiner = " OR " if mode == "or" else " AND "
-        match = joiner.join(f'"{t}"*' for t in terms)
+        match = joiner.join(fts_term(t) for t in terms)
         return self.conn.execute(
             """
             SELECT l.id, m.title, m.posted_at, l.channel, l.message_id,
@@ -183,8 +188,8 @@ class DB:
         Heritage") aparezcan aunque el top bm25 este lleno de titulos
         genericos de la marca.
         """
-        ands = " AND ".join(f'"{t}"*' for t in tokens_and if len(t) >= 2)
-        anys = " OR ".join(f'"{t}"*' for t in any_terms)
+        ands = " AND ".join(fts_term(t) for t in tokens_and if len(t) >= 2 or t.isdecimal())
+        anys = " OR ".join(fts_term(t) for t in any_terms)
         if not ands or not anys:
             return []
         match = f"({ands}) AND ({anys})"
@@ -204,7 +209,7 @@ class DB:
         ).fetchall()
 
     def search_like(self, query: str, limit: int = 8, mode: str = "and") -> list:
-        terms = [t for t in query.split() if len(t) >= 2]
+        terms = query_tokens(query)
         if not terms:
             return []
         where = " OR ".join("LOWER(m.title) LIKE ?" for _ in terms) if mode == "or" \
@@ -223,6 +228,23 @@ class DB:
             """,
             (*params, limit * 3),
         ).fetchall()
+
+    def _candidates(self, where, params, limit):
+        return self.conn.execute(
+            """SELECT l.id, m.title, m.posted_at, l.channel, l.message_id,
+                   COALESCE(l.resolved_url,l.url) AS link, l.url AS orig_url,
+                   l.product_id,l.checked_at,0.0 AS score
+               FROM links l JOIN messages m ON m.channel=l.channel
+                   AND m.message_id=l.message_id
+               WHERE l.dead_at IS NULL AND """ + where +
+            " ORDER BY m.posted_at DESC,l.id DESC LIMIT ?",
+            (*params, limit)).fetchall()
+
+    def search_product_id(self, product_id, limit=8):
+        return self._candidates("l.product_id=?", (product_id,), limit * 3)
+
+    def fuzzy_candidates(self, limit=500):
+        return self._candidates("1=1", (), limit)
 
     def stats(self) -> dict:
         row = self.conn.execute(
