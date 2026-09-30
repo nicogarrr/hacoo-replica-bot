@@ -1,5 +1,6 @@
 """Configuracion por variables de entorno. Ningun secreto va al repo."""
 import os
+from source_name import public_source_name
 
 
 def _int(name: str, default: int) -> int:
@@ -52,6 +53,11 @@ class Config:
                                 ("resolve_rate_per_min", 1, 120)):
             if not low <= getattr(self, name) <= high:
                 raise SystemExit(f"Configuración inválida: {name} debe estar entre {low} y {high}.")
+        try:
+            for channel in self.channels:
+                public_source_name(channel)
+        except ValueError as exc:
+            raise SystemExit("CHANNELS contiene un nombre inválido; usa solo usernames públicos.") from exc
         if not self.db_path.strip():
             raise SystemExit("DB_PATH no puede estar vacío.")
         if require_token and not self.telegram_bot_token:
