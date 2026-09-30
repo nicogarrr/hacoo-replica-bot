@@ -27,6 +27,7 @@ def _get_session():
 from trends import trends, format_offer
 from link_health import LinkHealth, choose_link
 from verified_results import verify_results, confirmed_model_present
+from message_format import reply_html
 _link_health = LinkHealth()
 from vision import identify_from_photo
 
@@ -164,8 +165,7 @@ def make_handlers(cfg, db):
             else:
                 # Marketplace is offline-only: do not imply link health.
                 row = dict(row, original_url="", health="Puede estar caído: marketplace sin comprobación en vivo.")
-            await update.message.reply_text(format_offer(row), parse_mode="HTML",
-                                           disable_web_page_preview=True)
+            await reply_html(update.message,[format_offer(row)])
             delivered += 1
         if not delivered:
             await update.message.reply_text("Las rutas comprobadas están caídas o no hay enlace seguro disponible. No he publicado nada.")
@@ -267,13 +267,11 @@ def make_handlers(cfg, db):
             destination = (f'<a href="{html.escape(r["link"], quote=True)}">Abrir en Hacoo</a>'
                            if r["link"] else "Enlace omitido: puede estar caído.")
             lines.append(
-                f"{i}. {html.escape(r['title'])}{extra}{date}{warn}\n"
+                f"{i}. {html.escape(r['title'][:200])}{extra}{date}{warn}\n"
                 f"Fuente: {citation} · {state} (no verifica disponibilidad).\n"
                 + destination)
         lines.append("\nLa talla se elige dentro de Hacoo al comprar.")
-        await update.message.reply_text(
-            "\n".join(lines), parse_mode="HTML",
-            disable_web_page_preview=True)
+        await reply_html(update.message,lines)
 
     async def texto(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         if not update.effective_chat or update.effective_chat.type != "private":
