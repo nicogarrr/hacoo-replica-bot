@@ -7,6 +7,7 @@ from urllib.parse import urljoin, urlsplit
 import requests
 from url_policy import safe_product_url, is_hacoo_url
 from product_state import classify_product_html
+from product_identity import hacoo_product_id
 
 @dataclass(frozen=True)
 class Health:
@@ -28,7 +29,7 @@ class LinkHealth:
         now = time.monotonic()
         with self.lock:
             cached = self.product_cache.get(product_id)
-            if cached and now-cached[0] < self.ttl:
+            if cached and now-cached[0] < (15 if cached[1][0] == 'unknown' else self.ttl):
                 return cached[1]
         # Official route observed in shop search SSR. Not an output/affiliate URL.
         url = f'https://shop.hacoo.pl/es-ES/detail/{product_id}'
@@ -45,6 +46,9 @@ class LinkHealth:
                     if status in {301,302,303,307,308} and location:
                         url = urljoin(url,location)
                         continue
+                    parsed = urlsplit(url)
+                    if parsed.hostname != 'shop.hacoo.pl' or parsed.path != f'/es-ES/detail/{product_id}':
+                        break # a different region/site is not evidence for web ES
                     if status != 200:
                         break # HTTP/transport failure is not global deletion proof
                     body = bytearray()
@@ -72,7 +76,7 @@ class LinkHealth:
         now = time.monotonic()
         with self.lock:
             cached = self.cache.get(url)
-            if cached and now-cached[0] < self.ttl:
+            if cached and now-cached[0] < (15 if cached[1].status == 'unknown' else self.ttl):
                 return cached[1]
         current = url
         result = Health('unknown', url, 'demasiadas redirecciones')
@@ -93,10 +97,10 @@ class LinkHealth:
             if status in {301,302,303,307,308} and location:
                 current = urljoin(current, location); continue
             if status == 200 and is_hacoo_url(current):
-                match = re.fullmatch(r'/(?:[a-z]{2}-[A-Z]{2}/)?(?:detail|product|p)/([0-9]+)/?', urlsplit(current).path)
-                if not match:
+                pid = hacoo_product_id(current)
+                if not pid:
                     result = Health('unknown',url,'ruta sin ID de producto verificable'); break
-                state, reason = self.probe_product(session,match.group(1),deadline)
+                state, reason = self.probe_product(session,pid,deadline)
                 result = Health('reachable' if state == 'present' else state,current,reason)
                 break
             result = Health('unknown', url, 'destino de producto no confirmado'); break
@@ -136,8 +140,7 @@ def choose_link(session, db, row, checker, output_url=None, budget=None, deadlin
             unknown = unknown or (candidate,health)
             continue
         expected = str(row.get('product_id') or '')
-        resolved_match = re.fullmatch(r'/(?:[a-z]{2}-[A-Z]{2}/)?(?:detail|product|p)/([0-9]+)/?', urlsplit(health.url).path)
-        if expected and (not resolved_match or resolved_match.group(1) != expected):
+        if expected and hacoo_product_id(health.url) != expected:
             unknown = unknown or (candidate,Health('unknown',url,'destino distinto del producto pedido'))
             continue
         db.mark_checked(candidate['id'],False)
@@ -152,11 +155,9 @@ def choose_link(session, db, row, checker, output_url=None, budget=None, deadlin
             else:
                 budget[0] -= 1
                 destination = checker.check(session,target,deadline)
-                destination_match = re.fullmatch(
-                    r'/(?:[a-z]{2}-[A-Z]{2}/)?(?:detail|product|p)/([0-9]+)/?',
-                    urlsplit(destination.url).path)
-                if (destination.status == 'reachable' and destination_match
-                        and (not expected or destination_match.group(1) == expected)):
+                destination_id = hacoo_product_id(destination.url)
+                if (destination.status == 'reachable' and destination_id
+                        and (not expected or destination_id == expected)):
                     target = target # retain verified mapping and attribution parameters
                 else:
                     target = health.url

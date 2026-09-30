@@ -5,19 +5,14 @@ import time
 from urllib.parse import urlparse, urljoin
 from url_policy import safe_product_url, is_hacoo_url
 from marketplace_links import normalize_marketplace_link
+from product_identity import hacoo_product_id
 
 import requests
 
 log = logging.getLogger(__name__)
 
-DETAIL_RE = re.compile(r"/(?:detail|product|p)/(\d+)")
-
-
 def extract_product_id(url: str) -> str:
-    if not is_hacoo_url(url):
-        return ""
-    m = DETAIL_RE.search(urlparse(url).path)
-    return m.group(1) if m else ""
+    return hacoo_product_id(url)
 
 
 class RetryableResolution(Exception):

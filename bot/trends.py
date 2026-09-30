@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from urllib.parse import urlsplit, urlunsplit
 from marketplace_links import normalize_marketplace_link
 from url_policy import safe_product_url, is_hacoo_url
+from product_identity import hacoo_product_id
 
 SCHEMA = """
 CREATE TABLE IF NOT EXISTS community_offers (
@@ -50,9 +51,9 @@ def offer_identity(url):
         return market['marketplace'], market['product_id']
     if safe_product_url(url):
         p = urlsplit(url)
-        match = re.fullmatch(r'/(?:detail|product|p)/(\d+)/?', p.path)
-        if is_hacoo_url(url) and match:
-            return 'hacoo', match.group(1)
+        pid = hacoo_product_id(url)
+        if pid:
+            return 'hacoo', pid
         # Unknown shortlinks remain separate; never strip tracking signatures.
         return 'hacoo', 'url:' + urlunsplit((p.scheme, p.netloc.lower(), p.path, p.query, ''))
     return None
