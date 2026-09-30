@@ -23,6 +23,7 @@ def _get_session():
     if _live_session is None:
         _live_session = make_session()
     return _live_session
+from trends import trends, format_offer
 from vision import identify_from_photo
 
 log = logging.getLogger(__name__)
@@ -125,6 +126,24 @@ def make_handlers(cfg, db):
             lines.append(f"@{c}: {m['posts']} / {m['links']} / "
                          f"{m['resolved_not_dead']} / {m['shortlinks_dead']}")
         await update.message.reply_text("\n".join(lines)[:3900])
+
+    async def tendencias(update, ctx):
+        if not _private_authorized(update, {cfg.owner_id}):
+            await _deny(update)
+            return
+        namespace = ctx.args[0].lower() if ctx.args else "hacoo"
+        if namespace not in {"hacoo", "taobao", "weidian", "1688"}:
+            await update.message.reply_text("Uso: /tendencias hacoo|taobao|weidian|1688")
+            return
+        rows = trends(db, namespace=namespace, limit=5)
+        if not rows:
+            await update.message.reply_text("No hay ofertas observadas en los últimos 7 días para esa fuente.")
+            return
+        await update.message.reply_text(
+            "Borradores: repetición entre fuentes y frescura, no ventas ni popularidad verificada. No he publicado nada en el canal.")
+        for row in rows:
+            await update.message.reply_text(format_offer(row), parse_mode="HTML",
+                                           disable_web_page_preview=True)
 
     async def agregarcanal(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         # Only the account owner can expand the crawl set, not Rodrigo.
@@ -285,5 +304,5 @@ def make_handlers(cfg, db):
     return {
         "start": start, "ayuda": ayuda, "stats": stats,
         "canales": canales, "agregarcanal": agregarcanal,
-        "buscar": buscar, "texto": texto, "foto": foto,
+        "buscar": buscar, "texto": texto, "foto": foto, "tendencias": tendencias,
     }

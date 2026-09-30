@@ -72,6 +72,7 @@ async def main() -> None:
     app.add_handler(CommandHandler("ayuda", handlers["ayuda"]))
     app.add_handler(CommandHandler("help", handlers["ayuda"]))
     app.add_handler(CommandHandler("stats", handlers["stats"]))
+    app.add_handler(CommandHandler("tendencias", handlers["tendencias"]))
     app.add_handler(CommandHandler("canales", handlers["canales"]))
     app.add_handler(CommandHandler("agregarcanal", handlers["agregarcanal"]))
     app.add_handler(CommandHandler("buscar", handlers["buscar"]))

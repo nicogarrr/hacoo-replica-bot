@@ -2,6 +2,7 @@
 import sqlite3
 import time
 from search import query_tokens
+from trends import init_trends
 
 def fts_term(token):
     return '"' + token.replace('"', '""') + '"*'
@@ -56,6 +57,7 @@ class DB:
         self.conn.execute("PRAGMA journal_mode=WAL")
         self.conn.execute("PRAGMA busy_timeout=30000")
         self.conn.executescript(SCHEMA)
+        init_trends(self)
         for col in ("dead_at", "checked_at", "resolve_retry_at"):
             if col not in {r["name"] for r in
                            self.conn.execute("PRAGMA table_info(links)")}:

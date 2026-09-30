@@ -68,3 +68,23 @@ montar un fichero JSON `{"12345": "https://enlace-verificado"}` dentro del
 contenedor y configurar `AFFILIATE_MAPPING_FILE=/ruta/links.json`; el ID
 procede de `resolver.py`. Sin fichero válido no hay reescritura de enlaces.
 **No convertir a afiliación enlaces sin ID, ni atribuir ventas a URLs directas.**
+
+### Tendencias privadas y borradores de alertas
+
+`/tendencias hacoo|taobao|weidian|1688` (solo dueño, chat privado) muestra
+hasta cinco borradores de los últimos siete días. No publica en ningún canal.
+Observa repetición entre fuentes y frescura, no ventas ni popularidad real.
+
+El rastreo guarda ofertas en `community_offers`, separadas por namespace.
+Los IDs marketplace no entran en `/buscar`. Mismo ID se agrupa; títulos iguales
+no bastan. Hacoo resuelto agrupa shortlinks; muertos conocidos se omiten.
+Se mantienen enlaces de la fuente, no enlaces afiliados propios inventados.
+
+Ranking: frescura dominante, fuentes adicionales acotadas y descuento acotado.
+Precio/descuento solo de una pareja explícita `antes 100 EUR ahora 80 EUR`
+(o €), moneda en ambos importes y una única identidad de producto en el post.
+Es una afirmación del post, no precio actual verificado. No infiere porcentajes.
+
+Se llena con páginas nuevas tras desplegar. Sin backfill automático ni scrape
+de marketplaces. `/agregarcanal` sigue exigiendo enlaces Hacoo/onlyaff: el parser
+marketplace recoge links coexistentes en fuentes ya aprobadas. Cero coste añadido.
