@@ -64,3 +64,11 @@ def test_rapidfuzz_typos_and_numeric_guard():
     assert r['results'][0]['title'] == 'Jordan 4 Military Black'
     assert r['exact'] is False
     assert search(db, 'Jordna 3 Militry Black')['exact'] is False
+
+def test_case_alias_of_telegram_source_not_two_sources():
+    db=DB(':memory:')
+    for c in ['SourceA','sourcea']:
+        db.insert_message(c,1,'2099-01-01','Nike Dunk','')
+        db.insert_link(c,1,'https://hacoo.app/detail/123')
+    r=search(db,'Nike Dunk')['results'][0]
+    assert r['sources']==1

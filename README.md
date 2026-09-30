@@ -270,3 +270,7 @@ que otra URL del mismo producto prolongue de hecho existencia hasta casi 240s.
 Límite de mensaje cuenta unidades UTF-16 (emojis no BMP cuentan dos), no solo
 len de Python. Se conserva markup intacto y límite conservador también para
 fuentes con emojis, evitando fallos de Telegram con bloques aparentemente cortos.
+
+Fuentes Telegram se cuentan sin distinguir mayúsculas: SourceA/sourcea no son
+dos fuentes ni dos posts en tendencias. No migra ni borra filas históricas,
+solo evita inflar señal de repetición/dedupe mostrado.

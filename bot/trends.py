@@ -113,8 +113,8 @@ def trends(db, namespace='hacoo', days=7, limit=10, now=None):
         if row['identity'] not in grouped:
             grouped[row['identity']] = dict(row, source_channels=set(), posts=0)
         r = grouped[row['identity']]
-        r['source_channels'].add(row['channel'])
-        r.setdefault('post_keys',set()).add((row['channel'],row['message_id']))
+        r['source_channels'].add(row['channel'].lower())
+        r.setdefault('post_keys',set()).add((row['channel'].lower(),row['message_id']))
         r['posts'] = len(r['post_keys'])
     result = []
     for r in grouped.values():
