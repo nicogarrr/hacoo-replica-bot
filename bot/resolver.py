@@ -4,25 +4,27 @@ import re
 import time
 from urllib.parse import urlparse, urljoin
 from url_policy import safe_product_url, is_hacoo_url
+from marketplace_links import normalize_marketplace_link
 
 import requests
 
 log = logging.getLogger(__name__)
 
 DETAIL_RE = re.compile(r"/(?:detail|product|p)/(\d+)")
-HACOO_HOST_RE = re.compile(r"(^|\.)hacoo\.[a-z]{2,3}(\.[a-z]{2})?$", re.I)
 
 
 def extract_product_id(url: str) -> str:
-    m = DETAIL_RE.search(url or "")
+    if not is_hacoo_url(url):
+        return ""
+    m = DETAIL_RE.search(urlparse(url).path)
     return m.group(1) if m else ""
 
 
-def resolve_one(session: requests.Session, url: str, max_hops: int = 4):
-    """Sigue redirecciones a mano hasta Hacoo o agotar hops.
+class RetryableResolution(Exception):
+    """Transient network/server failure, not a confirmed dead product."""
 
-    Devuelve (url_final, product_id) o (None, None) si falla.
-    """
+
+def _resolve_one(session, url, max_hops=4):
     current = url
     for _ in range(max_hops):
         if not safe_product_url(current):
@@ -30,23 +32,32 @@ def resolve_one(session: requests.Session, url: str, max_hops: int = 4):
         if is_hacoo_url(current) and extract_product_id(current):
             return current, extract_product_id(current)
         try:
-            # GET con stream: algunos acortadores devuelven 404 a HEAD.
             r = session.get(current, allow_redirects=False, timeout=15, stream=True)
-            r.close()
-            if r.status_code in (301, 302, 303, 307, 308) and r.headers.get("Location"):
-                current = urljoin(current, r.headers["Location"])
-                continue
-            if r.status_code == 200:
-                if is_hacoo_url(current):
-                    return current, extract_product_id(current)
-                return current, ""
-            return None, None
-        except Exception as e:
-            log.debug("resolver %s: %s", current, e)
-            return None, None
+            try:
+                status, location = r.status_code, r.headers.get("Location")
+            finally:
+                r.close()
+        except requests.RequestException as exc:
+            raise RetryableResolution() from exc
+        if status == 429 or status == 408 or status >= 500:
+            raise RetryableResolution()
+        if status in (301, 302, 303, 307, 308) and location:
+            current = urljoin(current, location)
+            continue
+        if status == 200:
+            return current, extract_product_id(current) if is_hacoo_url(current) else ""
+        return None, None
     if is_hacoo_url(current):
         return current, extract_product_id(current)
     return None, None
+
+
+def resolve_one(session, url, max_hops=4):
+    """Public compatibility wrapper; pending worker handles transient backoff."""
+    try:
+        return _resolve_one(session, url, max_hops)
+    except RetryableResolution:
+        return None, None
 
 
 def resolve_pending(session: requests.Session, db, rate_per_min: int = 30,
@@ -59,15 +70,19 @@ def resolve_pending(session: requests.Session, db, rate_per_min: int = 30,
     done = 0
     delay = 60.0 / max(1, rate_per_min)
     while True:
-        rows = db.unresolved_links(25)
+        rows = db.unresolved_links(25, started)
         if not rows:
             break
         for row in rows:
-            final_url, pid = resolve_one(session, row["url"])
-            if final_url:
-                db.mark_resolved(row["id"], final_url, pid or None)
+            try:
+                final_url, pid = _resolve_one(session, row["url"])
+            except RetryableResolution:
+                db.mark_retry(row["id"])
             else:
-                db.mark_failed(row["id"])
+                if final_url:
+                    db.mark_resolved(row["id"], final_url, pid or None)
+                else:
+                    db.mark_failed(row["id"])
             done += 1
             time.sleep(delay)
             if max_seconds and time.time() - started > max_seconds:
@@ -75,3 +90,18 @@ def resolve_pending(session: requests.Session, db, rate_per_min: int = 30,
                 return done
         db.commit()
     return done
+
+
+def resolve_identity(session, url):
+    """Typed resolver entry point; marketplace identities require no network.
+
+    Never write marketplace IDs to the Hacoo product_id column or return them
+    from the Hacoo search UI. No affiliate conversion is inferred.
+    """
+    market = normalize_marketplace_link(url)
+    if market:
+        return dict(market, kind="marketplace")
+    final, pid = resolve_one(session, url)
+    if final:
+        return {"kind": "hacoo", "canonical_url": final, "product_id": pid or ""}
+    return None

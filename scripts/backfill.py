@@ -19,7 +19,7 @@ def main() -> None:
     cfg = Config()
     db = DB(cfg.db_path)
     session = make_session()
-    for ch in cfg.channels:
+    for ch in db.channels(cfg.channels):
         t0 = time.time()
         try:
             n = crawl_channel(session, ch, db, max_pages=400, sleep_s=1.2,

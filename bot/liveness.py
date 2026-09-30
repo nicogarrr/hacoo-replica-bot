@@ -22,7 +22,7 @@ def check_pending(session, db, rate_per_min: int = 30,
     done = dead = 0
     delay = 60.0 / max(1, rate_per_min)
     while True:
-        rows = db.links_to_check(25)
+        rows = db.links_to_check(25, started)
         if not rows:
             break
         for row in rows:
