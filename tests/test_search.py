@@ -108,3 +108,21 @@ def test_categorize():
     assert categorize("sudadera trapstar negra") == "apparel"
     assert categorize("bolso goyard tote") == "accessory"
     assert categorize("Ralph Lauren") == ""
+
+
+def test_audit_source_and_checked_state_survive_dedup(tmp_path):
+    db = make_db(tmp_path)
+    db.mark_checked(1, False)
+    result = search(db, "Jordan 4 Military Black")["results"][0]
+    assert result["sources"] == 2
+    assert result["product_id"] == "100"
+    assert result["channel"] == "hacoolinks"  # newest matching post
+    assert result["message_id"] == 1
+    assert result["checked_at"] is not None
+    # We do not claim that the Hacoo product exists or is in stock.
+
+
+def test_audit_numeric_id_not_text_search(tmp_path):
+    db = make_db(tmp_path)
+    # Existing behavior documented. Requires separately scoped exact-ID search.
+    assert search(db, "100")["results"] == []

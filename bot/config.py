@@ -33,6 +33,11 @@ class Config:
         self.resolve_rate_per_min = _int("RESOLVE_RATE_PER_MIN", 30)
         self.db_path = os.environ.get("DB_PATH", "data/replicas.db")
         self.owner_id = 8258546109
+        # Closed by default. Numeric ID must come from Telegram getChat or a
+        # channel_post update, not from an invite URL or an assumed username.
+        self.public_search_enabled = os.environ.get("PUBLIC_SEARCH_ENABLED", "0") == "1"
+        self.public_channel_id = _int("PUBLIC_CHANNEL_ID", 0)
+        self.affiliate_mapping_file = os.environ.get("AFFILIATE_MAPPING_FILE", "")
         self.opencode_go_api_key = os.environ.get("OPENCODE_GO_API_KEY", "").strip()
         self.opencode_go_base_url = os.environ.get(
             "OPENCODE_GO_BASE_URL", "https://opencode.ai/zen/go/v1")
