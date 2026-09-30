@@ -58,3 +58,14 @@ def test_search_handler_refills_after_first_five_die(monkeypatch):
     asyncio.run(handlers.make_handlers(cfg,db)['buscar'](u,NS(args=[])))
     text='\n'.join(m.replies)
     assert 'Abrir en Hacoo' in text and 'detail/3' in text and 'detail/8' not in text
+
+def test_later_confirmed_duplicate_replaces_earlier_unknown(monkeypatch):
+    import verified_results
+    db,r=rows();a,b=r[:2]
+    a['product_id']=b['product_id']='123'
+    def choose(*args):
+        row=args[2]
+        return dict(row,link='' if row['id']==a['id'] else row['link'])
+    monkeypatch.setattr(verified_results,'choose_link',choose)
+    got=verify_results(None,db,[a,b],Checker({}),ProductLinks(),[12],None)
+    assert len(got)==1 and got[0]['link'] and got[0]['id']==b['id']
