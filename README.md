@@ -173,3 +173,11 @@ tras polling inicializado; fallos parciales del arranque no llaman stop de un
 updater que nunca empezó. INDEXER_ONLY también cierra DB en salida.
 Un apagado puede tardar hasta que termine el crawl/resolver acotado activo;
 no se promete parada inmediata ni se interrumpe una operación SQLite en vuelo.
+
+### Respuestas largas
+
+Buscar y tendencias dividen HTML solo entre bloques completos, con límite
+conservador 3800 caracteres por mensaje. Un bloque demasiado largo (por ejemplo
+URL firmada gigante) se omite con aviso, no se corta dentro del href. Títulos de
+búsqueda limitados a 200 caracteres antes de escapar HTML. No se pierde silencio
+por superar el límite de Telegram con cinco fichas extensas.
