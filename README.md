@@ -190,3 +190,13 @@ mantienen duplicados a cero. Mensajes/nav IDs cuyo data-post no coincide con el
 canal pedido se ignoran, para no atribuir fuente equivocada. Índices parciales de
 SQLite aceleran búsqueda de alternativa por ID y colas resolver/liveness sin
 borrar datos. No hace recrawl histórico automático ni amplía fuentes.
+
+### Cadencia del ciclo
+
+INDEX_INTERVAL_MIN mide comienzo a comienzo (trabajo + espera), no trabajo + otro
+intervalo completo. Resolver y liveness comparten el tiempo restante del ciclo,
+con margen de 60s: presupuesto agotado significa saltar trabajo opcional, NUNCA
+pasar max_seconds=0 (que significa ilimitado). Overrun espera al menos 60s antes
+del siguiente crawl para evitar bucle. Intervalos extremadamente cortos o crawl
+muy largo pueden dejar sin presupuesto al resolver: aumentar intervalo/reducir
+páginas si hace falta, no prometemos que todas las colas terminen cada ciclo.
