@@ -6,7 +6,7 @@ Never fabricate them by modifying a /detail/<id> URL or guessing parameters.
 import json
 import logging
 from pathlib import Path
-from urllib.parse import urlparse
+from url_policy import safe_product_url
 
 log = logging.getLogger(__name__)
 
@@ -21,8 +21,7 @@ class ProductLinks:
             if not isinstance(rows, dict):
                 raise ValueError("expected {product_id: verified_url}")
             for pid, link in rows.items():
-                parsed = urlparse(link)
-                if str(pid).isdigit() and parsed.scheme == "https" and parsed.hostname:
+                if isinstance(pid, str) and pid.isdecimal() and safe_product_url(link):
                     self.mapping[str(pid)] = link
                 else:
                     raise ValueError("invalid product ID or URL")
@@ -34,4 +33,5 @@ class ProductLinks:
         pid = str(row.get("product_id") or "")
         # The stored URL is the resolved product URL where available; do not
         # manufacture an unverified /detail URL from a product ID.
-        return self.mapping.get(pid, row["link"])
+        link = self.mapping.get(pid, row["link"])
+        return link if safe_product_url(link) else ""

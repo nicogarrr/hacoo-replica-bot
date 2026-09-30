@@ -2,6 +2,8 @@
 import asyncio
 import html
 import logging
+import sqlite3
+from url_policy import safe_product_url
 
 from telegram import Update
 from telegram.ext import ContextTypes
@@ -56,6 +58,12 @@ def _authorized(update: Update, allowed: set) -> bool:
     return bool(user and user.id in allowed)
 
 
+def _private_authorized(update, allowed):
+    return bool(update.effective_chat
+                and update.effective_chat.type == "private"
+                and _authorized(update, allowed))
+
+
 async def _deny(update: Update) -> None:
     if update.effective_chat and update.effective_chat.type == "private":
         await update.effective_message.reply_text(
@@ -96,7 +104,7 @@ def make_handlers(cfg, db):
             HELP if _authorized(update, cfg.authorized_user_ids) else PUBLIC_HELP)
 
     async def stats(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
-        if not _authorized(update, cfg.authorized_user_ids):
+        if not _private_authorized(update, cfg.authorized_user_ids):
             await _deny(update)
             return
         s = db.stats()
@@ -106,7 +114,7 @@ def make_handlers(cfg, db):
             f"Canales: {s['channels']}")
 
     async def canales(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
-        if not _authorized(update, cfg.authorized_user_ids):
+        if not _private_authorized(update, cfg.authorized_user_ids):
             await _deny(update)
             return
         channels = db.channels(cfg.channels)
@@ -121,7 +129,7 @@ def make_handlers(cfg, db):
     async def agregarcanal(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         # Only the account owner can expand the crawl set, not Rodrigo.
         if (not update.effective_user or update.effective_user.id != cfg.owner_id
-                or update.effective_chat.type != "private"):
+                or not update.effective_chat or update.effective_chat.type != "private"):
             await _deny(update)
             return
         if len(ctx.args) != 1:
@@ -172,7 +180,12 @@ def make_handlers(cfg, db):
             await update.message.reply_text(
                 "Dime el modelo, por ejemplo: Jordan 4 Military Black")
             return
-        found = search(db, query, limit=5)
+        try:
+            found = search(db, query, limit=5)
+        except sqlite3.Error:
+            log.exception("fallo buscando en el indice")
+            await update.message.reply_text("No pude consultar el índice. Prueba otra vez.")
+            return
         results = found["results"]
         if not results:
             await update.message.reply_text(
@@ -189,6 +202,8 @@ def make_handlers(cfg, db):
         # = muerto, se marca y se oculta antes de ensenarlo
         alive = []
         for r in results:
+            if not product_links.for_result(r) or not safe_product_url(r["orig_url"]):
+                continue
             if r.get("stale"):
                 dead = await asyncio.to_thread(
                     check_one, _get_session(), r["orig_url"])
@@ -228,14 +243,14 @@ def make_handlers(cfg, db):
             disable_web_page_preview=True)
 
     async def texto(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
-        if update.effective_chat.type != "private":
+        if not update.effective_chat or update.effective_chat.type != "private":
             return
         ctx.args = (update.message.text or "").split()
         await buscar(update, ctx)
 
     async def foto(update: Update, ctx: ContextTypes.DEFAULT_TYPE) -> None:
         # Vision calls a keyed LLM; preserve Nico and Rodrigo's scope.
-        if not _authorized(update, cfg.authorized_user_ids):
+        if not _private_authorized(update, cfg.authorized_user_ids):
             await _deny(update)
             return
         if not cfg.opencode_go_api_key:

@@ -10,6 +10,7 @@ from dataclasses import dataclass, field
 
 import requests
 from bs4 import BeautifulSoup
+from url_policy import safe_product_url
 
 log = logging.getLogger(__name__)
 
@@ -98,8 +99,9 @@ def crawl_channel(session: requests.Session, channel: str, db,
             db.insert_message(msg.channel, msg.message_id, msg.posted_at,
                               msg.title, msg.raw_text)
             for link in msg.links:
-                db.insert_link(msg.channel, msg.message_id, link)
-                new_count += 1
+                if safe_product_url(link):
+                    db.insert_link(msg.channel, msg.message_id, link)
+                    new_count += 1
         db.commit()
         ids = [m.message_id for m in msgs]
         oldest_in_page = min(ids)

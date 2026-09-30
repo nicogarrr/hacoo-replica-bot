@@ -8,6 +8,7 @@ navegador; solo marcamos muerto lo que el acortador confirma.
 """
 import logging
 import time
+from url_policy import safe_product_url
 
 log = logging.getLogger(__name__)
 
@@ -25,6 +26,9 @@ def check_pending(session, db, rate_per_min: int = 30,
         if not rows:
             break
         for row in rows:
+            if not safe_product_url(row["url"]):
+                db.mark_checked(row["id"], True)
+                continue
             is_dead = False
             try:
                 r = session.get(row["url"], allow_redirects=False,
@@ -44,6 +48,8 @@ def check_pending(session, db, rate_per_min: int = 30,
 
 def check_one(session, url: str) -> bool:
     """Chequeo puntual (busqueda en vivo): True si el enlace esta muerto."""
+    if not safe_product_url(url):
+        return True
     try:
         r = session.get(url, allow_redirects=False, timeout=10, stream=True)
         r.close()
