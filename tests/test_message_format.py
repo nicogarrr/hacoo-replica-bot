@@ -24,3 +24,18 @@ def test_async_reply_args_and_no_empty_message():
     m=Message();asyncio.run(reply_html(m,[]));assert not m.calls
     asyncio.run(reply_html(m,['<b>A</b>','B']))
     assert m.calls[0][1]=={'parse_mode':'HTML','disable_web_page_preview':True}
+
+def test_non_bmp_unicode_cannot_exceed_telegram_utf16_units():
+    from message_format import telegram_units
+    blocks=['<b>'+'😀'*950+'</b>' for _ in range(3)]
+    messages=html_messages(blocks)
+    assert len(messages)==3 # two blocks look short in Python but >3800 UTF16
+    assert all(telegram_units(t)<=MAX_MESSAGE for t in messages)
+    assert sum(t.count('😀') for t in messages)==2850
+    assert telegram_units('a😀')==3
+
+def test_giant_emoji_block_omitted_intact():
+    from message_format import telegram_units
+    messages=html_messages(['<b>'+'😀'*2000+'</b>'])
+    assert 'omitido' in messages[0] and '<b>' not in messages[0]
+    assert telegram_units(messages[0])<=MAX_MESSAGE
