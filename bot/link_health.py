@@ -100,7 +100,11 @@ class LinkHealth:
         with self.lock:
             cached = self.cache.get(url)
             if cached and now-cached[0] < (15 if cached[1].status == 'unknown' else self.ttl):
-                return cached[1]
+                product = self.product_cache.get(hacoo_product_id(cached[1].url))
+                # Route cache cannot extend an older product-presence proof.
+                if cached[1].status != 'reachable' or (product and
+                        product[1][0] == 'present' and now-product[0] < self.ttl):
+                    return cached[1]
         current = url
         result = Health('unknown', url, 'demasiadas redirecciones')
         for _ in range(self.max_hops):
