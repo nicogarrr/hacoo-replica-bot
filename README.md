@@ -237,3 +237,7 @@ Un trigger cambia sus términos FTS en todos sus enlaces sin duplicarlos: una
 corrección Jordan 1 -> Dunk ya no devuelve el título viejo en búsquedas. No
 borra automáticamente enlaces históricos que desaparezcan del texto: no es
 prueba de muerte y se mantienen sometidos al probe de vida/existencia.
+
+Tendencias no confía en un product_id legado que difiera del ID de resolved_url:
+no mezcla esas ofertas. Precio antiguo/corrupto que no cumpla antes>ahora>0 y
+reducción <=95% se omite del ranking/publicación, no anuncia descuento negativo.

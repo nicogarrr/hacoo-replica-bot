@@ -94,7 +94,8 @@ def trends(db, namespace='hacoo', days=7, limit=10, now=None):
           (namespace,now-days*86400,now)).fetchall()
     resolved = {(r["channel"],r["message_id"],r["url"]): r["product_id"]
         for r in related if r["product_id"] and is_hacoo_url(r["resolved_url"])
-        and r["dead_at"] is None}
+        and r["dead_at"] is None
+        and hacoo_product_id(r["resolved_url"]) == str(r["product_id"])}
     dead = {(r["channel"],r["message_id"],r["url"]) for r in related
             if r["dead_at"] is not None}
     grouped = {}
@@ -116,6 +117,10 @@ def trends(db, namespace='hacoo', days=7, limit=10, now=None):
     for r in grouped.values():
         age_days = max(0, (now-r['posted_ts'])/86400)
         r['sources'] = len(r.pop('source_channels'))
+        before, price = r['previous_cents'],r['price_cents']
+        if not (type(before) is int and type(price) is int and
+                0 < price < before and (before-price)/before <= .95):
+            r['previous_cents'] = r['price_cents'] = None
         r['discount_pct'] = (round(100*(r['previous_cents']-r['price_cents'])/
                                    r['previous_cents'],1)
                              if r['price_cents'] and r['previous_cents'] else None)
