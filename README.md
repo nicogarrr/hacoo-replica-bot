@@ -98,3 +98,23 @@ de DB_PATH cuando falta. Ciclos de crawl cuentan inserciones reales, no
 repeticiones. Tmall conserva namespace y URL Tmall, no se transforma en Taobao.
 Consultas de tendencias limitan estado de resolución/muerte a su ventana de
 observación, no cargan todo el histórico de enlaces.
+
+### Enlaces caídos: comprobación en consulta
+
+`/buscar` y tendencias Hacoo prueban enlaces originales en el momento de la
+consulta (caché local 120s, timeout hasta 3s por solicitud, máximo cuatro saltos,
+presupuesto de 8s y 12 comprobaciones búsqueda / 8 tendencias por consulta).
+404/410 y destinos no seguros se marcan muertos. Timeout, 429, errores y un
+onlyaff 200 sin destino Hacoo confirmado son desconocidos, no prueba de muerte.
+Desconocidos se muestran con "puede estar caído" SIN enlace de producto clicable.
+
+Al morir un enlace se buscan hasta dos alternativas ya indexadas con el MISMO
+ID Hacoo confirmado y se comprueban; no se fabrica una URL desde el ID. Mappings
+aprobados también se comprueban; si fallan se usa solo la ruta comprobada. El
+mapping verificado conserva su URL original y parámetros de atribución.
+
+Un 200 de Hacoo prueba ruta accesible, NO existencia del producto, stock o talla.
+No hay garantía absoluta: la SPA puede responder 200 para una ficha eliminada y
+la ruta puede caducar después del check. Marketplace continúa offline; tendencias
+marketplace omiten enlace clicable con aviso hasta tener comprobación soportada.
+No se usa navegador, pagos, catálogo privado ni API inventada para la recuperación.

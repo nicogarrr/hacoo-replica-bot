@@ -133,7 +133,12 @@ def format_offer(row):
         lines.append(f'El post anuncia {row["price_cents"]/100:.2f} EUR (antes {row["previous_cents"]/100:.2f} EUR, -{row["discount_pct"]:g}%).')
     else:
         lines.append('Precio/descuento no verificados.')
-    lines.append(f'<a href="{html.escape(row["original_url"],quote=True)}">Ver enlace original ({label})</a>')
+    if row['original_url']:
+        lines.append(f'<a href="{html.escape(row["original_url"],quote=True)}">Ver enlace ({label})</a>')
+    else:
+        lines.append('Enlace omitido: puede estar caído.')
+    if row.get('health'):
+        lines.append(html.escape(row['health']))
     channel = row['channel']
     if re.fullmatch(r'[A-Za-z][A-Za-z0-9_]{4,31}', channel) and row['message_id'] > 0:
         lines.append(f'<a href="https://t.me/{channel}/{row["message_id"]}">Fuente: @{html.escape(channel)}</a>')
