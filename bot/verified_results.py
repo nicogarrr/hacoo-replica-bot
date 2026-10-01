@@ -9,7 +9,7 @@ def verify_results(session,db,rows,checker,product_links,budget,deadline,limit=5
         if not safe_product_url(row['orig_url']):
             continue
         checked=choose_link(session,db,row,checker,
-                            product_links.for_result(row),budget,deadline)
+                            product_links.mapping.get(str(row.get('product_id') or '')),budget,deadline)
         if not checked:
             continue
         key=checked.get('product_id') or checked['orig_url']

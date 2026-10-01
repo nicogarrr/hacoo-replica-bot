@@ -33,3 +33,14 @@ def test_unresolved_unknown_keeps_real_shortlink_not_synthetic_detail():
     row=dict(db.fuzzy_candidates()[0])
     c=choose_link(Session([Resp()]),db,row,LinkHealth())
     assert c['link']==u and not c['direct']
+
+def test_verified_pipeline_shortlink_is_not_affiliate_mapping():
+    from verified_results import verify_results
+    import time
+    db=DB(':memory:');u='https://onlyaff.app/a'
+    db.insert_message('sourcea',1,'','shoe','');db.insert_link('sourcea',1,u)
+    row=dict(db.fuzzy_candidates()[0])
+    s=Session([Resp(status=302,location='https://hacoo.app/detail/40302592'),Resp(),Resp((FIX/'40302592.html').read_text())])
+    result=verify_results(s,db,[row],LinkHealth(),ProductLinks(),[8],time.monotonic()+8)
+    assert result[0]['link']=='https://hacoo.app/detail/40302592'
+    assert result[0]['verified']
