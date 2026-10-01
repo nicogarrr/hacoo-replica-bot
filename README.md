@@ -274,3 +274,7 @@ fuentes con emojis, evitando fallos de Telegram con bloques aparentemente cortos
 Fuentes Telegram se cuentan sin distinguir mayúsculas: SourceA/sourcea no son
 dos fuentes ni dos posts en tendencias. No migra ni borra filas históricas,
 solo evita inflar señal de repetición/dedupe mostrado.
+
+Lista de fuentes de ejecución deduplica usernames sin distinguir mayúsculas,
+preserva primera grafía y no borra extra_channels. Evita crawl duplicado del
+mismo canal y que aliases consuman el límite de 35 fuentes distintas.
