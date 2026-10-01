@@ -146,7 +146,7 @@ def format_offer(row):
     if row['original_url']:
         lines.append(f'<a href="{html.escape(row["original_url"],quote=True)}">Ver enlace ({label})</a>')
     else:
-        lines.append('Enlace omitido: puede estar caído.')
+        lines.append('Enlace omitido: no hay destino seguro disponible.')
     if row.get('health'):
         lines.append(html.escape(row['health']))
     channel = row['channel']

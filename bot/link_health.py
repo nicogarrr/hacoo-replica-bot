@@ -155,6 +155,8 @@ def choose_link(session, db, row, checker, output_url=None, budget=None, deadlin
         url = candidate['orig_url']
         if budget[0] <= 0:
             exhausted = True
+            if safe_product_url(url):
+                unknown = unknown or (candidate,Health('unknown',url,'sin comprobar por presupuesto'))
             continue
         if url in seen:
             continue
@@ -164,11 +166,16 @@ def choose_link(session, db, row, checker, output_url=None, budget=None, deadlin
             db.mark_checked(candidate['id'],True)
             continue
         if health.status in {'unknown','unavailable'}:
-            unknown = unknown or (candidate,health)
+            expected = str(row.get('product_id') or '')
+            observed = hacoo_product_id(health.url)
+            # Lack of web data is inconclusive; a different known destination is not.
+            if expected and observed and observed != expected:
+                continue
+            if safe_product_url(url):
+                unknown = unknown or (candidate,health)
             continue
         expected = str(row.get('product_id') or hacoo_product_id(health.url) or '')
         if expected and hacoo_product_id(health.url) != expected:
-            unknown = unknown or (candidate,Health('unknown',url,'destino distinto del producto pedido'))
             continue
         db.mark_checked(candidate['id'],False)
         chosen = dict(row)
@@ -188,16 +195,20 @@ def choose_link(session, db, row, checker, output_url=None, budget=None, deadlin
                     target = target # retain verified mapping and attribution parameters
                 else:
                     target = health.url
+        chosen['verified'] = True
         chosen['product_id'] = expected or None
         chosen['link'] = target
         chosen['health'] = 'Ficha presente en la web ES al comprobar; no verifica stock/talla.'
         return chosen
-    # Unknowns are explicitly named, not clickable dead ends.
-    if unknown or exhausted:
+    # Web/app catalog mismatch is NOT evidence that the original route is dead.
+    if unknown:
+        candidate, health = unknown
         chosen = dict(row)
-        chosen['link'] = ''
-        chosen['health'] = ('No disponible en la web ES. Enlace omitido; no demuestra borrado global.'
-                            if unknown and unknown[1].status == 'unavailable'
-                            else 'Puede estar caído: no pude confirmar que el producto exista en la web ES. Enlace omitido.')
+        for field in ('id','orig_url','channel','message_id','posted_at','checked_at'):
+            if field in candidate:
+                chosen[field] = candidate[field]
+        chosen['link'] = candidate['orig_url']
+        chosen['verified'] = False
+        chosen['health'] = 'Sin verificar en web ES; puede estar disponible en la app.'
         return chosen
     return None

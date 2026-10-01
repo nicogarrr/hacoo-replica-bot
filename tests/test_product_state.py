@@ -62,7 +62,7 @@ def test_real_unavailable_has_no_button_not_marked_dead():
     db.mark_resolved(1,url,'40777036');r=dict(db.search_product_id('40777036')[0])
     s=Session([Resp(),Resp((FIX/'40777036.html').read_text())])
     c=choose_link(s,db,r,LinkHealth())
-    assert c['link']=='' and 'No disponible en la web ES' in c['health']
+    assert c['link']==url and not c['verified'] and 'Sin verificar' in c['health']
     assert db.conn.execute('SELECT dead_at FROM links').fetchone()[0] is None
 
 def test_generic_200_never_gets_link_and_errors_unknown():
@@ -110,7 +110,7 @@ def test_checker_product_unavailable_handler_has_no_clickable_product(monkeypatc
     u=NS(effective_chat=NS(type='private'),effective_user=NS(id=cfg.owner_id),message=m,effective_message=m)
     asyncio.run(h['buscar'](u,NS(args=[])))
     text='\n'.join(m.replies)
-    assert 'No disponible en la web ES' in text and 'Abrir en Hacoo' not in text
+    assert 'Sin verificar' in text and 'Abrir en Hacoo' in text and 'Enlace omitido' not in text
 
 # A real globally-deleted fixture must be owner-labeled before adding a deletion
 # assertion. Current negative fixture proves web-ES unavailability only.
@@ -122,7 +122,7 @@ def test_redirect_to_different_real_product_not_substitute():
     r=dict(db.search_product_id('40777036')[0])
     s=Session([Resp(status=302,location='https://hacoo.app/detail/40302592'),Resp(),Resp((FIX/'40302592.html').read_text())])
     c=choose_link(s,db,r,LinkHealth())
-    assert c['link']==''
+    assert c is None
 
 def test_unresolved_original_cannot_emit_old_destination_of_different_product():
     db=DB(':memory:');url='https://onlyaff.app/new'

@@ -169,7 +169,7 @@ def make_handlers(cfg, db):
                     row['price_cents'] = row['previous_cents'] = row['discount_pct'] = None
             else:
                 # Marketplace is offline-only: do not imply link health.
-                row = dict(row, original_url="", health="Puede estar caído: marketplace sin comprobación en vivo.")
+                row = dict(row, health="Sin verificar: enlace marketplace sin comprobación en vivo.")
             await reply_html(update.message,[format_offer(row)])
             delivered += 1
         if not delivered:
@@ -270,10 +270,10 @@ def make_handlers(cfg, db):
                         f'@{html.escape(r["channel"])}</a>' if source else
                         html.escape(r["channel"]))
             destination = (f'<a href="{html.escape(r["link"], quote=True)}">Abrir en Hacoo</a>'
-                           if r["link"] else "Enlace omitido: puede estar caído.")
+                           if r["link"] else "Enlace omitido: no hay destino seguro disponible.")
             lines.append(
                 f"{i}. {html.escape(r['title'][:200])}{extra}{date}{warn}\n"
-                f"Fuente: {citation} · {state} (no verifica disponibilidad).\n"
+                f"Fuente: {citation} · {state}\n"
                 + destination)
         lines.append("\nLa talla se elige dentro de Hacoo al comprar.")
         await reply_html(update.message,lines)

@@ -12,3 +12,9 @@ https://shop.hacoo.pl/es-ES/detail/14638268 - SSR web unavailable, NOT global de
 https://shop.hacoo.pl/es-ES/detail/39459713 - SSR web unavailable, NOT global deletion proof.
 https://shop.hacoo.pl/es-ES/detail/39512968 - SSR web unavailable, NOT global deletion proof.
 First three were resolved/not-dead in production DB; last two had route dead_at. These are transport labels, not owner-confirmed product existence labels.
+
+40800048: GET https://shop.hacoo.pl/es-ES/detail/40800048 2026-10-01 08:40 CEST:
+HTTP200, no redirect, no visible challenge, itemDetail=null/isAbnormalItem=true,
+errorCode empty, web says unavailable. Owner screenshot that morning shows same
+ID in Hacoo app with product/price/sizes/cart. This is app-vs-web false negative,
+not a proven deleted product. Minimal fixture contains only public detail state.
