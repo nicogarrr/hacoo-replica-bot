@@ -41,7 +41,7 @@ def test_all_dead_omitted_and_never_synthesize_url():
 def test_timeout_unknown_warning_without_clickable_product_link():
     db,r=rows();s=Session([requests.Timeout(),requests.Timeout()])
     chosen=choose_link(s,db,r,LinkHealth())
-    assert chosen['link']==r['orig_url'] and 'Sin verificar' in chosen['health'] and not chosen['verified']
+    assert chosen['link']==r['link'] and 'Sin verificar' in chosen['health'] and not chosen['verified']
     assert db.conn.execute('SELECT COUNT(*) FROM links WHERE dead_at IS NOT NULL').fetchone()[0]==0
 
 def test_200_shortlink_not_treated_as_product_and_spa_only_route():
@@ -74,7 +74,7 @@ def test_mapping_dead_falls_back_to_confirmed_route_mapping_preserved():
 def test_budget_deadline_zero_no_network_and_warning():
     db,r=rows();s=Session([])
     c=choose_link(s,db,r,LinkHealth(),deadline=time.monotonic()-1)
-    assert c['link']==r['orig_url'] and not c['verified'] and not s.calls
+    assert c['link']==r['link'] and not c['verified'] and not s.calls
     assert choose_link(s,db,r,LinkHealth(),budget=[0])['verified'] is False
 
 def test_draft_unknown_has_no_clickable_product_link():
