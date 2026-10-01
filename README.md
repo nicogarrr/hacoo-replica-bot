@@ -290,3 +290,18 @@ Timeout/error/presupuesto/SSR no concluyente mantiene URL ORIGINAL indexada con
 No fabrica URLs ni mappings; candidatos con prueba positiva siguen primeros y
 un link sin verificar no cuenta como modelo confirmado. Marketplace offline
 mantiene enlace original con "Sin verificar" en vez de vacío. OFF permanece OFF.
+
+### Destino directo y afiliación (parche 30)
+
+Botón usa ruta de producto realmente observada en redirect o resolved_url cuyo
+ID coincide, incluso si SSR web ES no confirma (mantiene Sin verificar, política
+29). No construye una ficha desde ID sin destino observado. Si resolver no tiene
+destino, conserva shortlink original seguro; cita Telegram es evidencia de fuente,
+no paso necesario para abrir Hacoo. No se puede garantizar directo cuando no hay
+resolución sin inventar URL. Query se preserva: podría ser funcional/firmada.
+
+HACOO_AFFILIATE_TAG es hook reservado vacío por defecto e INACTIVO: formato oficial
+pendiente. Un tag no se añade a ningún URL hasta documentar mecánica oficial. Las
+URLs ya verificadas del panel en AFFILIATE_MAPPING_FILE tienen prioridad y se
+preservan. Un link directo o de tercero no acredita comisión propia. Tampoco se
+reemplazan parámetros ajenos por guessed tags; no llamar al enlace "nuestro".
