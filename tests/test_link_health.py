@@ -41,7 +41,7 @@ def test_all_dead_omitted_and_never_synthesize_url():
 def test_timeout_unknown_warning_without_clickable_product_link():
     db,r=rows();s=Session([requests.Timeout(),requests.Timeout()])
     chosen=choose_link(s,db,r,LinkHealth())
-    assert chosen['link']=='' and 'Puede estar caído' in chosen['health']
+    assert chosen['link']==r['orig_url'] and 'Sin verificar' in chosen['health'] and not chosen['verified']
     assert db.conn.execute('SELECT COUNT(*) FROM links WHERE dead_at IS NOT NULL').fetchone()[0]==0
 
 def test_200_shortlink_not_treated_as_product_and_spa_only_route():
@@ -74,8 +74,8 @@ def test_mapping_dead_falls_back_to_confirmed_route_mapping_preserved():
 def test_budget_deadline_zero_no_network_and_warning():
     db,r=rows();s=Session([])
     c=choose_link(s,db,r,LinkHealth(),deadline=time.monotonic()-1)
-    assert c['link']=='' and not s.calls
-    assert choose_link(s,db,r,LinkHealth(),budget=[0])['link'] == ''
+    assert c['link']==r['orig_url'] and not c['verified'] and not s.calls
+    assert choose_link(s,db,r,LinkHealth(),budget=[0])['verified'] is False
 
 def test_draft_unknown_has_no_clickable_product_link():
     r=dict(title='Jordan',posted_ts=1800000000,namespace='hacoo',sources=1,
@@ -96,9 +96,9 @@ def test_search_and_trends_handlers_omit_dead_replace_or_warn(monkeypatch):
     from datetime import datetime,timezone
     for command, responses, expected in [
         ('buscar',[Resp(404),Resp(404)],'rutas están caídas'),
-        ('buscar',[requests.Timeout(),requests.Timeout()],'puede estar caído'),
+        ('buscar',[requests.Timeout(),requests.Timeout()],'Sin verificar'),
         ('buscar',[Resp(404),Resp(302,'https://hacoo.app/detail/123'),Resp(200)],'Abrir en Hacoo'),
-        ('tendencias',[requests.Timeout(),requests.Timeout()],'puede estar caído'),
+        ('tendencias',[requests.Timeout(),requests.Timeout()],'Sin verificar'),
     ]:
         db,r=rows()
         now=datetime.now(timezone.utc).isoformat()
@@ -117,5 +117,5 @@ def test_search_and_trends_handlers_omit_dead_replace_or_warn(monkeypatch):
         asyncio.run(h[command](u,NS(args=[])))
         text='\n'.join(m.replies)
         assert expected in text
-        if 'Abrir en Hacoo'!=expected:
+        if expected == 'rutas están caídas':
             assert 'Abrir en Hacoo' not in text

@@ -15,17 +15,17 @@ def verify_results(session,db,rows,checker,product_links,budget,deadline,limit=5
         key=checked.get('product_id') or checked['orig_url']
         previous = seen.get(key)
         if previous is not None:
-            if previous['link'] or not checked['link']:
+            if previous.get('verified',bool(previous['link'])) or not checked.get('verified',bool(checked['link'])):
                 continue
             # A later confirmed route supersedes an earlier uncertainty.
             uncertain.remove(previous)
         seen[key] = checked
-        (alive if checked['link'] else uncertain).append(checked)
+        (alive if checked.get('verified',bool(checked['link'])) else uncertain).append(checked)
         if len(alive)>=limit:
             break
     return (alive+uncertain)[:limit]
 
 def confirmed_model_present(results,model):
     terms={t.lower() for t in query_tokens(model)}
-    return bool(terms) and any(r['link'] and terms <= {
+    return bool(terms) and any(r.get('verified',bool(r['link'])) and terms <= {
         t.lower() for t in query_tokens(r['title'])} for r in results)

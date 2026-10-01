@@ -29,7 +29,7 @@ def test_unknowns_do_not_push_out_later_live_results():
     db,r=rows();h=Checker({str(i):'unknown' for i in range(4,9)})
     got=verify_results(None,db,r,h,ProductLinks(),[12],None)
     assert [x['product_id'] for x in got[:3]]==['3','2','1']
-    assert len(got)==5 and all(not x['link'] for x in got[3:])
+    assert len(got)==5 and all(x['link'] and not x['verified'] for x in got[3:])
 
 def test_exact_header_requires_visible_confirmed_model():
     assert not confirmed_model_present([{'title':'Jordan 4 Military Black','link':''}],'4 Military')
@@ -40,7 +40,7 @@ def test_budget_not_reset_by_overfetch():
     db,r=rows();h=Checker({str(i):'dead' for i in range(1,9)})
     got=verify_results(None,db,r,h,ProductLinks(),[2],None)
     assert len(h.calls)==2
-    assert all(not x['link'] for x in got)
+    assert all(x['link'] and not x['verified'] for x in got)
 
 def test_search_handler_refills_after_first_five_die(monkeypatch):
     import asyncio

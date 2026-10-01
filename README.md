@@ -278,3 +278,15 @@ solo evita inflar señal de repetición/dedupe mostrado.
 Lista de fuentes de ejecución deduplica usernames sin distinguir mayúsculas,
 preserva primera grafía y no borra extra_channels. Evita crawl duplicado del
 mismo canal y que aliases consuman el límite de 35 fuentes distintas.
+
+### Política corregida de web/app (2026-10-01)
+
+La captura del dueño demuestra 40800048 disponible en app mientras SSR web ES
+lo declara no disponible. Esa señal NO justifica eliminar el enlace. La política
+actual sustituye las reglas de omisión por incertidumbre descritas más arriba:
+solo caída positiva 404/410, destino inseguro o producto distinto se omiten.
+Timeout/error/presupuesto/SSR no concluyente mantiene URL ORIGINAL indexada con
+"Sin verificar en web ES; puede estar disponible en la app". No dice "caído".
+No fabrica URLs ni mappings; candidatos con prueba positiva siguen primeros y
+un link sin verificar no cuenta como modelo confirmado. Marketplace offline
+mantiene enlace original con "Sin verificar" en vez de vacío. OFF permanece OFF.
