@@ -92,7 +92,10 @@ class DB:
         # Existing .env entries are never removed by this feature.
         saved = [r["username"] for r in self.conn.execute(
             "SELECT username FROM extra_channels ORDER BY added_at, username")]
-        return list(dict.fromkeys([*defaults, *saved]))
+        unique = {}
+        for channel in [*defaults,*saved]:
+            unique.setdefault(channel.lower(),channel)
+        return list(unique.values())
 
     def add_channel(self, username: str, defaults: list) -> bool:
         if username in {c.lower() for c in self.channels(defaults)}:
