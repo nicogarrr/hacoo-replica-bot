@@ -7,18 +7,13 @@ import json
 import logging
 from pathlib import Path
 from url_policy import safe_product_url
-from direct_product_url import canonical_observed_product
 
 log = logging.getLogger(__name__)
 
 
 class ProductLinks:
-    def __init__(self, mapping_file: str = "", affiliate_tag: str = ""):
-        # Tag alone cannot authorize guessing a URL format. Reserved, no append.
-        self.affiliate_tag = affiliate_tag
+    def __init__(self, mapping_file: str = ""):
         self.mapping = {}
-        if affiliate_tag:
-            log.warning("Affiliate tag reserved but inactive: use verified mapping URLs until official format is confirmed")
         if not mapping_file:
             return
         try:
@@ -38,5 +33,5 @@ class ProductLinks:
         pid = str(row.get("product_id") or "")
         # The stored URL is the resolved product URL where available; do not
         # manufacture an unverified /detail URL from a product ID.
-        link = self.mapping.get(pid) or canonical_observed_product(row["link"],pid) or row["link"]
+        link = self.mapping.get(pid, row["link"])
         return link if safe_product_url(link) else ""

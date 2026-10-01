@@ -8,7 +8,6 @@ import requests
 from url_policy import safe_product_url, is_hacoo_url
 from product_state import classify_product_html
 from product_identity import hacoo_product_id
-from direct_product_url import canonical_observed_product
 
 @dataclass(frozen=True)
 class Health:
@@ -196,9 +195,6 @@ def choose_link(session, db, row, checker, output_url=None, budget=None, deadlin
                     target = target # retain verified mapping and attribution parameters
                 else:
                     target = health.url
-        # Non-mapping output is the actual observed direct product route.
-        if not output_url or target != output_url:
-            target = canonical_observed_product(health.url,expected) or target
         chosen['verified'] = True
         chosen['product_id'] = expected or None
         chosen['link'] = target
@@ -211,12 +207,7 @@ def choose_link(session, db, row, checker, output_url=None, budget=None, deadlin
         for field in ('id','orig_url','channel','message_id','posted_at','checked_at'):
             if field in candidate:
                 chosen[field] = candidate[field]
-        expected = str(row.get('product_id') or '')
-        # For web-ES unavailability we still observed a real redirect destination.
-        direct = canonical_observed_product(health.url,expected)
-        stored = canonical_observed_product(candidate['link'],expected)
-        chosen['link'] = direct or stored or candidate['orig_url']
-        chosen['direct'] = bool(direct or stored)
+        chosen['link'] = candidate['orig_url']
         chosen['verified'] = False
         chosen['health'] = 'Sin verificar en web ES; puede estar disponible en la app.'
         return chosen

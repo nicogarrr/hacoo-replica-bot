@@ -78,7 +78,7 @@ async def _deny(update: Update) -> None:
 
 def make_handlers(cfg, db):
     gate = SubscriberGate(cfg.public_channel_id, cfg.public_search_enabled)
-    product_links = ProductLinks(cfg.affiliate_mapping_file, getattr(cfg,"hacoo_affiliate_tag",""))
+    product_links = ProductLinks(cfg.affiliate_mapping_file)
 
     async def search_allowed(update, ctx):
         if not update.effective_chat or update.effective_chat.type != "private":

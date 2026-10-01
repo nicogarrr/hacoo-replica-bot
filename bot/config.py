@@ -38,8 +38,6 @@ class Config:
         # channel_post update, not from an invite URL or an assumed username.
         self.public_search_enabled = os.environ.get("PUBLIC_SEARCH_ENABLED", "0") == "1"
         self.public_channel_id = _int("PUBLIC_CHANNEL_ID", 0)
-        # Reserved only: format must be verified in official affiliate panel.
-        self.hacoo_affiliate_tag = os.environ.get("HACOO_AFFILIATE_TAG", "").strip()
         self.affiliate_mapping_file = os.environ.get("AFFILIATE_MAPPING_FILE", "")
         self.opencode_go_api_key = os.environ.get("OPENCODE_GO_API_KEY", "").strip()
         self.opencode_go_base_url = os.environ.get(
